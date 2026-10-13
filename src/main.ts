@@ -31,6 +31,8 @@ new Phaser.Game({
   backgroundColor: '#070b1f',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: true, roundPixels: true },
+  // Vários dedos ao mesmo tempo: mover, pular e tocar no cenário.
+  input: { activePointers: 3 },
   physics: {
     default: 'arcade',
     arcade: { gravity: { x: 0, y: GRAVITY }, tileBias: 16 },

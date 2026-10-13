@@ -3,10 +3,17 @@ import { drawTile } from '../art/draw';
 import { BUILDABLE } from '../data/blocks';
 import type { BlockId } from '../types/game';
 import { el, onClick, show } from './dom';
+import { applyKeyLabels } from './keys';
 
-export type BuildTool = { kind: 'none' } | { kind: 'piece'; id: BlockId } | { kind: 'demolish' };
+export type BuildTool = { kind: 'none' } | { kind: 'piece'; id: BlockId } | { kind: 'demolish' } | { kind: 'repair' };
 
-/** Menu de construção: ícone, nome e custo de cada peça + ferramenta de demolição. */
+const TOOL_TEXT = {
+  demolish: 'Clique em uma peça sua para demolir. Devolve metade do custo, menos o desgaste.',
+  repair: 'Clique em uma peça sua danificada para restaurar a resistência.',
+  none: 'Escolha uma peça (1–7) e clique no cenário. Botão direito cancela.',
+} as const;
+
+/** Menu de construção: ícone e custo de cada peça, mais as ferramentas de reparo e demolição. */
 export class BuildMenu {
   private readonly abort = new AbortController();
   private buttons = new Map<string, HTMLButtonElement>();
@@ -15,6 +22,7 @@ export class BuildMenu {
   open = false;
 
   constructor(private readonly onPick: (tool: BuildTool) => void) {
+    const s = this.abort.signal;
     const box = el('build-items');
     box.innerHTML = '';
     BUILDABLE.forEach((def, i) => {
@@ -30,21 +38,28 @@ export class BuildMenu {
       b.append(icon);
       b.setAttribute('aria-label', `${def.name}, custo ${def.cost}`);
       b.insertAdjacentHTML('beforeend', `<span class="key">${i + 1}</span><span class="cost">${def.cost}</span>`);
-      b.addEventListener('pointerenter', () => this.describe(`${def.name} (${def.cost}) — ${def.description}`), { signal: this.abort.signal });
-      b.addEventListener('pointerleave', () => this.describe(null), { signal: this.abort.signal });
-      onClick(b, this.abort.signal, () => this.onPick({ kind: 'piece', id: def.id }));
+      b.addEventListener('pointerenter', () => this.describe(`${def.name} (${def.cost}) — ${def.description}`), { signal: s });
+      b.addEventListener('pointerleave', () => this.describe(null), { signal: s });
+      onClick(b, s, () => this.onPick({ kind: 'piece', id: def.id }));
       box.appendChild(b);
       this.buttons.set(def.id, b);
     });
-    const d = document.createElement('button');
-    d.className = 'piece tool';
-    d.dataset.piece = 'demolish';
-    d.title = 'Remove uma peça sua e devolve parte do custo.';
-    d.setAttribute('aria-label', 'Demolir');
-    d.innerHTML = '<span class="key">R</span><span class="glyph">✕</span><span class="cost">+50%</span>';
-    onClick(d, this.abort.signal, () => this.onPick({ kind: 'demolish' }));
-    box.appendChild(d);
-    this.buttons.set('demolish', d);
+    const tool = (kind: 'repair' | 'demolish', glyph: string, label: string, cost: string): void => {
+      const b = document.createElement('button');
+      b.className = 'piece tool';
+      b.dataset.piece = kind;
+      b.title = TOOL_TEXT[kind];
+      b.setAttribute('aria-label', label);
+      b.innerHTML = `<span class="key" data-key="${kind}"></span><span class="glyph">${glyph}</span><span class="cost">${cost}</span>`;
+      b.addEventListener('pointerenter', () => this.describe(`${label} — ${TOOL_TEXT[kind]}`), { signal: s });
+      b.addEventListener('pointerleave', () => this.describe(null), { signal: s });
+      onClick(b, s, () => this.onPick({ kind }));
+      box.appendChild(b);
+      this.buttons.set(kind, b);
+    };
+    tool('repair', '✚', 'Reparar', '½');
+    tool('demolish', '✕', 'Demolir', '+50%');
+    applyKeyLabels(box);
     show(el('build-menu'), false);
   }
 
@@ -64,20 +79,23 @@ export class BuildMenu {
       b.classList.toggle('selected', tool.kind === 'piece' && tool.id === def.id);
       b.classList.toggle('poor', resources < def.cost);
     }
-    (this.buttons.get('demolish') as HTMLButtonElement).classList.toggle('selected', tool.kind === 'demolish');
+    for (const kind of ['repair', 'demolish'] as const) {
+      (this.buttons.get(kind) as HTMLButtonElement).classList.toggle('selected', tool.kind === kind);
+    }
     const picked = tool.kind === 'piece' ? BUILDABLE.find((b) => b.id === tool.id) : undefined;
-    const desc = picked
+    this.baseDesc = picked
       ? `${picked.name} (${picked.cost}) — ${picked.description}`
-      : tool.kind === 'demolish'
-        ? 'Clique em uma peça sua para demolir. Devolve metade do custo, menos o desgaste.'
-        : 'Escolha uma peça (1–7) e clique no cenário. Botão direito cancela.';
-    this.baseDesc = desc;
+      : TOOL_TEXT[tool.kind === 'piece' ? 'none' : tool.kind];
     this.describe(null);
   }
 
   /** Mostra a descrição da peça sob o cursor; null volta à da seleção atual. */
   private describe(text: string | null): void {
     el('build-desc').textContent = text ?? this.baseDesc;
+  }
+
+  refreshKeys(): void {
+    applyKeyLabels(el('build-items'));
   }
 
   destroy(): void {

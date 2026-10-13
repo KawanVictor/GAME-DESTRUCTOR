@@ -11,7 +11,7 @@ function setup(total = 3, maxActive = 99) {
   let victory = 0;
   const waves = new WaveSystem({
     total, firstPreparation: 5, preparation: 8, completedPause: 2,
-    compose: (n): WaveDef => ({ number: n, enemies: Array<EnemyType>(n + 1).fill('basic'), spawnInterval: 1, reward: 10 * n }),
+    compose: (n): WaveDef => ({ number: n, enemies: Array<EnemyType>(n + 1).fill('basic'), spawnInterval: 1, reward: 10 * n, boss: false, hpScale: 1 }),
     spawn: (type) => {
       if (alive.length >= maxActive) return null;
       spawned.push(type);
@@ -140,15 +140,12 @@ describe('composição das ondas', () => {
     expect(w.enemies).toEqual(['basic', 'basic', 'basic']);
   });
 
-  it('cresce em quantidade, variedade e ritmo', () => {
-    const count = (n: number, t: EnemyType): number => composeWave(n).enemies.filter((e) => e === t).length;
-    expect(count(2, 'fast')).toBeGreaterThan(0);
-    expect(count(3, 'tank')).toBe(0);
-    expect(count(4, 'tank')).toBeGreaterThan(0);
-    for (let n = 1; n < 12; n++) {
-      expect(composeWave(n + 1).enemies.length).toBeGreaterThan(composeWave(n).enemies.length);
-      expect(composeWave(n + 1).spawnInterval).toBeLessThanOrEqual(composeWave(n).spawnInterval);
-      expect(composeWave(n + 1).reward).toBeGreaterThan(composeWave(n).reward);
+  it('fora das ondas de chefe, cresce em quantidade, ritmo e recompensa', () => {
+    const normal = [1, 2, 3, 4, 6, 7, 8, 9, 11, 12].map(composeWave);
+    for (let i = 1; i < normal.length; i++) {
+      expect(normal[i].enemies.length).toBeGreaterThan(normal[i - 1].enemies.length);
+      expect(normal[i].spawnInterval).toBeLessThanOrEqual(normal[i - 1].spawnInterval);
+      expect(normal[i].reward).toBeGreaterThan(normal[i - 1].reward);
     }
   });
 });

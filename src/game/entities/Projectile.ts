@@ -15,6 +15,7 @@ export class Projectile extends Phaser.Physics.Arcade.Image {
     this.enableBody(true, x, y, true, true);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setAllowGravity(false);
+    body.setSize(6, 6, true);          // corpo pequeno e centrado: a rotação do desenho não muda a colisão
     body.setVelocity(vx, vy);
     this.setRotation(Math.atan2(vy, vx));
     this.damage = damage;

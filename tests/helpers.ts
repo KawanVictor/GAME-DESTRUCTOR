@@ -15,7 +15,7 @@ export function makeWorld(resourcesAmount = 200, extra: Array<[number, number, B
   }
   for (const [x, y, id] of extra) cells[y * cols + x] = blockById(id).index;
   const level: LevelData = {
-    cols, rows, cells,
+    id: 'colina', name: 'Teste', cols, rows, cells,
     playerSpawn: { x: 10, y: 9 },
     enemySpawns: [{ x: 1, y: 9 }],
     protectedZones: [{ x: 1, y: 9, radius: 1 }],

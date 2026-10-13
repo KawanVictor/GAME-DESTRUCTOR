@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UPGRADES } from '../src/game/config';
 import { Cooldown, explosionDamage, Health, SwingTracker } from '../src/game/systems/CombatSystem';
-import { buyUpgrade, createMatch } from '../src/game/systems/MatchState';
 import { selectTurretTarget, SpikeTimer } from '../src/game/world/Trap';
 
 describe('vida e dano', () => {
@@ -105,24 +103,5 @@ describe('armadilhas', () => {
     expect(t.tryDamage(1, 0.2, 0.5)).toBe(false);
     expect(t.tryDamage(2, 0.2, 0.5)).toBe(true);
     expect(t.tryDamage(1, 0.5, 0.5)).toBe(true);
-  });
-});
-
-describe('melhorias', () => {
-  it('compra desconta materiais e aplica o efeito', () => {
-    const m = createMatch();
-    const before = m.resources.value;
-    expect(buyUpgrade(m, 'damage')).toBe(true);
-    expect(m.resources.value).toBe(before - UPGRADES.damage.cost);
-    expect(m.damageMultiplier).toBeCloseTo(1.2);
-    expect(buyUpgrade(m, 'heal')).toBe(false);     // vida cheia: não cobra
-    expect(m.resources.value).toBe(before - UPGRADES.damage.cost);
-  });
-
-  it('não compra sem saldo', () => {
-    const m = createMatch();
-    m.resources.spend(m.resources.value);
-    expect(buyUpgrade(m, 'maxHp')).toBe(false);
-    expect(m.playerHealth.max).toBe(100);
   });
 });

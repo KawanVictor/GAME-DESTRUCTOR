@@ -3,7 +3,17 @@ import { TILE, VIEW_HEIGHT, VIEW_WIDTH } from '../config';
 import * as art from '../art/draw';
 import { TILESET_FRAMES } from '../data/blocks';
 import { ENEMY_DEFS } from '../data/enemies';
+import { audio } from '../services';
+import { SOUND_NAMES, type SoundName } from '../systems/AudioSystem';
 import type { EnemyType } from '../types/game';
+
+/** public/assets/manifest.json: arquivos que substituem a arte e os sons gerados. */
+interface AssetManifest {
+  images?: Record<string, { file: string; frameWidth?: number; frameHeight?: number }>;
+  audio?: Record<string, string>;
+}
+
+const WALK_RATE: Record<EnemyType, number> = { basic: 8, fast: 14, tank: 5, flyer: 16, spitter: 7, boss: 4 };
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -20,7 +30,19 @@ export class PreloadScene extends Phaser.Scene {
   preload(): void {
     // Um arquivo que falhe ao carregar não trava o jogo: o placeholder gerado assume.
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
-      console.warn(`Recurso não carregado (${file.key}); usando arte gerada.`);
+      console.warn(`Recurso não carregado (${file.key}); usando arte/som gerado.`);
+    });
+    // Arte e áudio finais são opcionais: o manifesto diz o que substituir.
+    this.load.json('asset-manifest', 'assets/manifest.json');
+    this.load.once('filecomplete-json-asset-manifest', (_key: string, _type: string, data: AssetManifest) => {
+      for (const [key, img] of Object.entries(data?.images ?? {})) {
+        const url = `assets/${img.file}`;
+        if (img.frameWidth && img.frameHeight) this.load.spritesheet(key, url, { frameWidth: img.frameWidth, frameHeight: img.frameHeight });
+        else this.load.image(key, url);
+      }
+      for (const [name, file] of Object.entries(data?.audio ?? {})) {
+        if (SOUND_NAMES.includes(name as SoundName)) this.load.audio(`sfx-${name}`, `assets/${file}`);
+      }
     });
   }
 
@@ -42,11 +64,12 @@ export class PreloadScene extends Phaser.Scene {
     for (const type of Object.keys(ENEMY_DEFS) as EnemyType[]) {
       const f = ENEMY_DEFS[type].frame;
       this.sheet(`enemy-${type}`, f.width, f.height, art.ENEMY_FRAME_COUNT, (c, i) => art.drawEnemy(c, type, i));
-      this.anim(`enemy-${type}-walk`, `enemy-${type}`, 0, 4, type === 'fast' ? 14 : type === 'tank' ? 5 : 8, -1);
+      this.anim(`enemy-${type}-walk`, `enemy-${type}`, 0, 4, WALK_RATE[type], -1);
     }
 
     this.single('bullet', 18, 8, art.drawBullet);
     this.single('turret-bullet', 10, 10, art.drawTurretBullet);
+    this.single('enemy-bullet', 12, 12, art.drawEnemyBullet);
     this.single('spark', 8, 8, art.drawSpark);
     this.single('glow', 64, 64, art.drawGlow);
     this.single('pickup', 16, 16, art.drawPickup);
@@ -55,6 +78,12 @@ export class PreloadScene extends Phaser.Scene {
     this.single('bg-sky', VIEW_WIDTH, VIEW_HEIGHT, (c) => art.drawSky(c, VIEW_WIDTH, VIEW_HEIGHT));
     this.single('bg-far', 1024, 360, (c) => art.drawRidge(c, 1024, 360, '#181d44', 190, 70, 34, 2, 5, 1.3));
     this.single('bg-near', 1024, 320, (c) => art.drawRuins(c, 1024, 320));
+
+    // Sons vindos de arquivo substituem os sintetizados, um a um.
+    for (const name of SOUND_NAMES) {
+      const key = `sfx-${name}`;
+      if (this.cache.audio.exists(key)) audio.samples.set(name, () => { this.sound.play(key, { volume: audio.level }); });
+    }
 
     this.scene.start('Menu');
   }

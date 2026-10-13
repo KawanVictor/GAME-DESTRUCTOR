@@ -1,4 +1,4 @@
-import type { Action, SaveData, Settings } from '../types/game';
+import type { Action, ArenaId, SaveData, Settings, TouchMode } from '../types/game';
 
 const KEY = 'destructor.save.v1';
 
@@ -15,21 +15,26 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
   jump: ['SPACE'],
   melee: ['J'],
   shoot: ['K'],
+  dash: ['L', 'SHIFT'],
   build: ['B'],
   demolish: ['R'],
+  repair: ['T'],
   startWave: ['ENTER'],
 };
 
 export function defaultSave(): SaveData {
   return {
     version: 1,
-    settings: { volume: 0.6, muted: false, bindings: cloneBindings(DEFAULT_BINDINGS) },
+    settings: { volume: 0.6, muted: false, music: true, arena: 'colina', touch: 'auto', bindings: cloneBindings(DEFAULT_BINDINGS) },
     bestWave: 0,
     stats: { kills: 0, games: 0, blocksPlaced: 0 },
   };
 }
 
-function cloneBindings(b: Record<Action, string[]>): Record<Action, string[]> {
+export const ARENA_IDS: readonly ArenaId[] = ['colina', 'vale', 'planalto'];
+const TOUCH_MODES: readonly TouchMode[] = ['auto', 'on', 'off'];
+
+export function cloneBindings(b: Record<Action, string[]>): Record<Action, string[]> {
   const out = {} as Record<Action, string[]>;
   for (const k of Object.keys(b) as Action[]) out[k] = b[k].slice();
   return out;
@@ -68,6 +73,9 @@ export function restore(raw: string | null): SaveData {
   const settings: Settings = d.settings;
   settings.volume = num(se.volume, settings.volume, 0, 1);
   settings.muted = typeof se.muted === 'boolean' ? se.muted : settings.muted;
+  settings.music = typeof se.music === 'boolean' ? se.music : settings.music;
+  if (ARENA_IDS.includes(se.arena as ArenaId)) settings.arena = se.arena as ArenaId;
+  if (TOUCH_MODES.includes(se.touch as TouchMode)) settings.touch = se.touch as TouchMode;
   const b = (se.bindings ?? {}) as Record<string, unknown>;
   for (const action of Object.keys(settings.bindings) as Action[]) {
     const keys = b[action];
@@ -118,9 +126,36 @@ export class SaveSystem {
     return record;
   }
 
-  updateSettings(patch: Partial<Pick<Settings, 'volume' | 'muted'>>): void {
-    if (patch.volume !== undefined) this.data.settings.volume = num(patch.volume, this.data.settings.volume, 0, 1);
-    if (patch.muted !== undefined) this.data.settings.muted = patch.muted;
+  updateSettings(patch: Partial<Omit<Settings, 'bindings'>>): void {
+    const s = this.data.settings;
+    if (patch.volume !== undefined) s.volume = num(patch.volume, s.volume, 0, 1);
+    if (patch.muted !== undefined) s.muted = patch.muted;
+    if (patch.music !== undefined) s.music = patch.music;
+    if (patch.arena !== undefined && ARENA_IDS.includes(patch.arena)) s.arena = patch.arena;
+    if (patch.touch !== undefined && TOUCH_MODES.includes(patch.touch)) s.touch = patch.touch;
+    this.save();
+  }
+
+  /**
+   * Atribui uma tecla a uma ação. Se a tecla já era de outra ação, as duas
+   * trocam, para nenhuma ficar sem tecla nem haver tecla duplicada.
+   */
+  rebind(action: Action, key: string): boolean {
+    if (!/^[A-Z0-9_]{1,16}$/.test(key)) return false;
+    const b = this.data.settings.bindings;
+    const previous = b[action][0];
+    for (const other of Object.keys(b) as Action[]) {
+      if (other === action || !b[other].includes(key)) continue;
+      b[other] = b[other].filter((k) => k !== key);
+      if (b[other].length === 0 && previous) b[other] = [previous];
+    }
+    b[action] = [key];
+    this.save();
+    return true;
+  }
+
+  resetBindings(): void {
+    this.data.settings.bindings = cloneBindings(DEFAULT_BINDINGS);
     this.save();
   }
 }

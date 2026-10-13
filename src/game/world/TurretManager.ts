@@ -21,6 +21,8 @@ export class TurretManager {
     private readonly scene: Phaser.Scene,
     private readonly building: BuildingSystem,
     private readonly bullets: Phaser.Physics.Arcade.Group,
+    /** Multiplicador de dano vindo das melhorias. */
+    private readonly damageScale: () => number,
     private readonly onFire: (x: number, y: number) => void,
   ) {}
 
@@ -67,7 +69,7 @@ export class TurretManager {
       const mx = ox + Math.cos(angle) * 20;
       const my = oy + Math.sin(angle) * 20;
       bullet.fire(mx, my, Math.cos(angle) * TURRET.projectileSpeed, Math.sin(angle) * TURRET.projectileSpeed,
-        TURRET.damage, TURRET.range * TILE * 1.2, 0);
+        TURRET.damage * this.damageScale(), TURRET.range * TILE * 1.2, 0);
       this.onFire(mx, my);
     }
   }

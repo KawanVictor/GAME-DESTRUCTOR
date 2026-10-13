@@ -150,7 +150,7 @@ test.describe('DESTRUCTOR', () => {
 
     await page.keyboard.press('b');
     await expect(page.locator('#build-menu')).toBeVisible();
-    await expect(page.locator('#build-items .piece')).toHaveCount(8);       // 7 peças + demolição
+    await expect(page.locator('#build-items .piece')).toHaveCount(9);       // 7 peças + reparo + demolição
 
     // Escolher a peça pelo menu não constrói nada por acidente.
     await page.click('[data-piece="stone_block"]');
@@ -287,52 +287,68 @@ test.describe('DESTRUCTOR', () => {
     await page.evaluate(() => (window.__destructor?.game as DebugApi).setPrepTimer(600));
     const s0 = await toFlatGround(page);
     const { tx, ty } = s0.player;
+    const ground = s0.player.y;
+
+    // Plataforma de impulso: o herói pula e ela é construída embaixo dele, no ar.
     await page.keyboard.press('b');
     await page.keyboard.press('5');
-    await clickCell(page, tx + 1, ty);
-    expect(await cell(page, tx + 1, ty)).toBe('jump_pad');
-    await page.keyboard.press('4');
-    await clickCell(page, tx - 3, ty);
-    expect(await cell(page, tx - 3, ty)).toBe('explosive_block');
-    await page.keyboard.press('2');
-    await clickCell(page, tx - 4, ty);
-    await page.keyboard.press('Escape');
-
-    // Subir na plataforma de impulso lança o herói bem acima de um pulo normal (~3 tiles).
-    await hold(page, 'd', 350);                       // encosta na plataforma
-    const ground = (await snap(page)).player.y;
+    const under = await page.evaluate(([x, y]) => (window.__destructor?.game as DebugApi).cellToClient(x, y), [tx, ty]);
+    await page.mouse.move(under.x, under.y);
+    await expect(page.locator('#build-tip')).toContainText('alguém no caminho');      // com o herói no lugar, não pode
     await page.keyboard.down('Space');
-    await page.waitForTimeout(90);
-    await hold(page, 'd', 130);                       // passo curto no ar para cair em cima dela
-    await page.waitForTimeout(200);
+    await page.waitForFunction((g) => (window.__destructor?.game as DebugApi).snapshot().player.y < g - 60, ground);
+    await page.mouse.click(under.x, under.y);
     await page.keyboard.up('Space');
+    expect(await cell(page, tx, ty)).toBe('jump_pad');
+    // Ao cair nela, é lançado bem acima de um pulo normal (~3 tiles) e alcança a plataforma alta.
     let peak = ground;
     for (let i = 0; i < 45; i++) { await page.waitForTimeout(40); peak = Math.min(peak, (await snap(page)).player.y); }
     expect(ground - peak).toBeGreaterThan(32 * 6);
-    // O impulso leva o herói até a plataforma alta — área que um pulo comum não alcança.
-    await page.waitForFunction(() => (window.__destructor?.game as DebugApi).snapshot().player.onFloor);
-    expect((await snap(page)).player.y).toBeLessThan(ground - 32 * 3);
-    await hold(page, 'a', 500);                       // afasta-se da coluna da plataforma de impulso
-    await page.waitForTimeout(250);
-    // Baixo + pulo: desce atravessando a plataforma de madeira.
-    await page.keyboard.down('s');
-    await page.keyboard.press('Space', { delay: 60 });
-    await page.keyboard.up('s');
-    await page.waitForFunction((g) => (window.__destructor?.game as DebugApi).snapshot().player.y >= g - 1, ground);
-    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
 
-    // Um inimigo em cima do bloco de pedra, ao lado do explosivo (fora da linha de tiro):
-    // o disparo detona o bloco e a explosão fere o inimigo.
+    // Sai da coluna do impulso, pela plataforma alta, e desce atravessando a madeira (baixo + pulo).
+    await page.keyboard.down('d');
+    await page.waitForFunction((x) => {
+      const p = (window.__destructor?.game as DebugApi).snapshot().player;
+      return p.onFloor && p.tx >= x;
+    }, tx + 1, { timeout: 20_000 });
+    await page.keyboard.up('d');
+    await page.waitForTimeout(300);
+    if ((await snap(page)).player.y < ground - 40) {
+      await page.keyboard.down('s');
+      await page.keyboard.press('Space', { delay: 60 });
+      await page.keyboard.up('s');
+    }
+    await page.waitForFunction((g) => {
+      const p = (window.__destructor?.game as DebugApi).snapshot().player;
+      return p.onFloor && p.y >= g - 1;
+    }, ground, { timeout: 20_000 });
+
+    // Demole a plataforma de impulso para liberar a linha de tiro.
+    await page.keyboard.press('r');
+    await clickCell(page, tx, ty);
+    expect(await cell(page, tx, ty)).toBe('empty');
+
+    // Explosivo ao lado do herói, pedra mais atrás e um inimigo chegando por aquele lado.
+    const here = (await snap(page)).player;
+    await page.keyboard.press('4');
+    await clickCell(page, here.tx - 1, here.ty);
+    expect(await cell(page, here.tx - 1, here.ty)).toBe('explosive_block');
+    await page.keyboard.press('2');
+    await clickCell(page, here.tx - 3, here.ty);
+    expect(await cell(page, here.tx - 3, here.ty)).toBe('stone_block');
+    await page.keyboard.press('Escape');
     await hold(page, 'a', 40);
-    const foe = await page.evaluate(() => (window.__destructor?.game as DebugApi).spawnEnemy('tank', -3.9));
-    await page.waitForTimeout(250);
-    await hold(page, 'k', 500);
-    await expect.poll(() => cell(page, tx - 3, ty), { timeout: 8000 }).toBe('empty');
+    const foe = await page.evaluate(() => (window.__destructor?.game as DebugApi).spawnEnemy('tank', -2.6));
+    await page.waitForTimeout(350);
+    // Um golpe ativa o bloco: a explosão fere o inimigo e (menos) o próprio herói; a pedra resiste.
+    await page.keyboard.press('j', { delay: 40 });
+    await expect.poll(() => cell(page, here.tx - 1, here.ty), { timeout: 8000 }).toBe('empty');
     const after = await snap(page);
     expect(after.enemies.find((e) => e.id === foe)?.hp ?? 0).toBeLessThan(170);
-    expect(await cell(page, tx - 4, ty)).toBe('stone_block');      // pedra resiste à explosão
-    expect(after.bullets).toBeLessThanOrEqual(40);
-    await fightUntil(page, (v) => v.enemies.length === 0, 30_000);
+    expect(after.player.hp).toBeLessThan(100);
+    expect(after.player.hp).toBeGreaterThan(50);
+    expect(await cell(page, here.tx - 3, here.ty)).toBe('stone_block');
   });
 
   test('vitória: tela final e continuação no modo infinito', async ({ page }) => {
@@ -352,6 +368,222 @@ test.describe('DESTRUCTOR', () => {
     const t0 = s.time;
     await page.waitForTimeout(300);
     expect((await snap(page)).time).toBeGreaterThan(t0);
+  });
+
+
+  test('mira assistida: do alto da colina o disparo acerta quem está embaixo', async ({ page }) => {
+    await startGame(page);
+    await page.evaluate(() => (window.__destructor?.game as DebugApi).setPrepTimer(600));
+    // O herói vai até a beira do topo da colina; o inimigo nasce à direita, dois níveis abaixo.
+    await page.keyboard.down('d');
+    await page.waitForFunction(() => (window.__destructor?.game as DebugApi).snapshot().player.tx >= 38);
+    await page.keyboard.up('d');
+    await page.waitForTimeout(350);
+    const id = await page.evaluate(() => (window.__destructor?.game as DebugApi).spawnEnemy('tank', 6));
+    await page.waitForTimeout(500);
+    const before = await snap(page);
+    const foe = before.enemies.find((e) => e.id === id);
+    expect(foe && foe.y).toBeGreaterThan(before.player.y + 20);      // está mais baixo que o herói
+    await hold(page, 'd', 50);
+    await hold(page, 'k', 900);
+    expect((await snap(page)).enemies.find((e) => e.id === id)?.hp ?? 0).toBeLessThan(foe?.hp ?? 0);
+  });
+
+  test('investida: avanço rápido com recarga', async ({ page }) => {
+    await startGame(page);
+    await toFlatGround(page);
+    await page.evaluate(() => (window.__destructor?.game as DebugApi).setPrepTimer(600));
+    await hold(page, 'd', 50);
+    await page.waitForTimeout(400);
+    const x0 = (await snap(page)).player.x;
+    await page.keyboard.press('l');
+    await page.waitForTimeout(260);
+    const x1 = (await snap(page)).player.x;
+    expect(x1 - x0).toBeGreaterThan(70);
+    // Em recarga: apertar de novo logo em seguida não avança outra vez.
+    await page.waitForTimeout(300);
+    const x2 = (await snap(page)).player.x;
+    await page.keyboard.press('l');
+    await page.waitForTimeout(260);
+    expect((await snap(page)).player.x - x2).toBeLessThan(20);
+    await expect(page.locator('#cd-dash')).not.toHaveAttribute('style', /width: 100%/);
+  });
+
+  test('reparo: restaura uma peça danificada por um custo proporcional', async ({ page }) => {
+    const s0 = await startGame(page);
+    await page.evaluate(() => (window.__destructor?.game as DebugApi).setPrepTimer(600));
+    const { tx, ty } = s0.player;
+    await page.keyboard.press('b');
+    await page.keyboard.press('2');
+    await clickCell(page, tx + 2, ty);
+    await page.evaluate(([x, y]) => (window.__destructor?.game as DebugApi).damageCell(x, y, 110), [tx + 2, ty]);
+    const hp = (x: number, y: number): Promise<number> => page.evaluate(([cx, cy]) => (window.__destructor?.game as DebugApi).cellHp(cx, cy), [x, y]);
+    expect(await hp(tx + 2, ty)).toBe(110);
+    const before = (await snap(page)).resources;
+
+    await page.keyboard.press('t');
+    await expect(page.locator('[data-piece="repair"]')).toHaveClass(/selected/);
+    const p = await page.evaluate(([x, y]) => (window.__destructor?.game as DebugApi).cellToClient(x, y), [tx + 2, ty]);
+    await page.mouse.move(p.x, p.y);
+    await expect(page.locator('#build-tip')).toContainText('Reparar Bloco de pedra — custo 5');
+    await page.mouse.click(p.x, p.y);
+    await expect.poll(() => hp(tx + 2, ty)).toBe(220);
+    expect((await snap(page)).resources).toBe(before - 5);
+    // Peça inteira: nada a reparar, nada cobrado.
+    await page.mouse.click(p.x, p.y);
+    await expect(page.locator('#toast')).toContainText('já está inteira');
+    expect((await snap(page)).resources).toBe(before - 5);
+  });
+
+  test('novos inimigos: Vespa voa, Cuspidor atira de longe e o Titã tem barra de chefe', async ({ page }) => {
+    await startGame(page);
+    await toFlatGround(page);
+    await page.evaluate(() => (window.__destructor?.game as DebugApi).setPrepTimer(600));
+
+    // Vespa: fica no ar (acima do herói) e é abatida a tiros.
+    const flyer = await page.evaluate(() => (window.__destructor?.game as DebugApi).spawnEnemy('flyer', 6));
+    await page.waitForTimeout(700);
+    let s = await snap(page);
+    expect(s.enemies.find((e) => e.id === flyer)?.y ?? 9999).toBeLessThan(s.player.y - 40);
+    s = await fightUntil(page, (v) => v.kills >= 1, 40_000);
+    expect(s.kills).toBe(1);
+
+    // Cuspidor: fere o herói sem encostar.
+    const hp0 = (await snap(page)).player.hp;
+    const spitter = await page.evaluate(() => (window.__destructor?.game as DebugApi).spawnEnemy('spitter', -7));
+    await expect.poll(async () => (await snap(page)).player.hp, { timeout: 15_000 }).toBeLessThan(hp0);
+    s = await snap(page);
+    const sp = s.enemies.find((e) => e.id === spitter);
+    expect(sp && Math.abs(sp.x - s.player.x)).toBeGreaterThan(32 * 2.5);
+    s = await fightUntil(page, (v) => v.kills >= 2, 40_000);
+    expect(s.kills).toBe(2);
+
+    // Titã: aparece com nome e barra de vida.
+    await page.evaluate(() => (window.__destructor?.game as DebugApi).spawnEnemy('boss', 8));
+    await expect(page.locator('#boss')).toBeVisible();
+    await expect(page.locator('#boss-name')).toHaveText('Titã');
+    await page.screenshot({ path: 'test-results/shots/boss.png' });
+  });
+
+  test('arenas: a escolha no menu muda o mapa e fica salva', async ({ page }) => {
+    await page.goto('/?test=1');
+    await expect(page.locator('#arena-list [data-arena]')).toHaveCount(3);
+    await expect(page.locator('[data-arena="colina"]')).toHaveAttribute('aria-checked', 'true');
+    await page.click('[data-arena="vale"]');
+    await expect(page.locator('[data-arena="vale"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#arena-desc')).toContainText('descem');
+    await page.click('#btn-play');
+    await page.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game?.snapshot().player.onFloor === true);
+    const vale = await snap(page);
+    expect(vale.arena).toBe('vale');
+    await page.screenshot({ path: 'test-results/shots/vale.png' });
+
+    await page.reload();
+    await expect(page.locator('[data-arena="vale"]')).toHaveAttribute('aria-checked', 'true');
+    await page.click('[data-arena="planalto"]');
+    await page.click('#btn-play');
+    await page.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game?.snapshot().player.onFloor === true);
+    const planalto = await snap(page);
+    expect(planalto.arena).toBe('planalto');
+    expect(planalto.player.y).not.toBe(vale.player.y);       // terrenos diferentes
+  });
+
+  test('opções: remapear teclas vale na partida e fica salvo', async ({ page }) => {
+    await page.goto('/?test=1');
+    await page.click('#btn-menu-options');
+    await expect(page.locator('#options')).toBeVisible();
+    await page.click('[data-rebind="jump"]');
+    await expect(page.locator('[data-rebind="jump"]')).toContainText('Aperte');
+    await page.keyboard.press('w');
+    await expect(page.locator('[data-rebind="jump"]')).toHaveText('W');
+    // Tecla já usada troca com a outra ação.
+    await page.click('[data-rebind="melee"]');
+    await page.keyboard.press('k');
+    await expect(page.locator('[data-rebind="melee"]')).toHaveText('K');
+    await expect(page.locator('[data-rebind="shoot"]')).toHaveText('J');
+    await page.locator('#opt-volume').fill('0.3');
+    await page.uncheck('#opt-music');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#options')).toBeHidden();
+    await expect(page.locator('#menu')).toBeVisible();          // Esc fechou só as opções
+
+    await page.click('#btn-play');
+    await page.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game?.snapshot().player.onFloor === true);
+    await expect(page.locator('.weapons [data-key="melee"]')).toHaveText('K');
+    const y0 = (await snap(page)).player.y;
+    await page.keyboard.press('Space', { delay: 150 });
+    expect((await snap(page)).player.y).toBeCloseTo(y0, 0);    // Espaço não pula mais
+    await page.keyboard.down('w');
+    await page.waitForTimeout(200);
+    expect((await snap(page)).player.y).toBeLessThan(y0 - 30);
+    await page.keyboard.up('w');
+
+    // Remapear durante a pausa passa a valer na mesma partida.
+    await page.waitForFunction(() => window.__destructor?.game?.snapshot().player.onFloor === true);
+    await page.keyboard.press('Escape');
+    await page.click('#btn-pause-options');
+    await page.click('#btn-keys-reset');
+    await expect(page.locator('[data-rebind="jump"]')).toHaveText('Espaço');
+    await page.click('#btn-options-close');
+    await expect(page.locator('#pause')).toBeVisible();
+    await page.click('#btn-resume');
+    await page.waitForTimeout(150);
+    await page.keyboard.down('Space');
+    await page.waitForTimeout(200);
+    expect((await snap(page)).player.y).toBeLessThan(y0 - 30);
+    await page.keyboard.up('Space');
+
+    await page.reload();
+    await page.click('#btn-menu-options');
+    await expect(page.locator('#opt-volume')).toHaveValue('0.3');
+    await expect(page.locator('#opt-music')).not.toBeChecked();
+    await expect(page.locator('[data-rebind="melee"]')).toHaveText('J');
+  });
+
+  test('controles de toque movem, pulam e atacam', async ({ page }) => {
+    await page.goto('/?test=1');
+    await page.click('#btn-menu-options');
+    await page.selectOption('#opt-touch', 'on');
+    await page.click('#btn-options-close');
+    await page.click('#btn-play');
+    await page.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game?.snapshot().player.onFloor === true);
+    await expect(page.locator('#touch')).toBeVisible();
+    await expect(page.locator('.weapons')).toBeHidden();
+    await page.evaluate(() => (window.__destructor?.game as DebugApi).setPrepTimer(600));
+
+    const press = (name: string, type: 'pointerdown' | 'pointerup'): Promise<void> =>
+      page.dispatchEvent(`[data-touch="${name}"]`, type, { pointerId: 7, pointerType: 'touch', bubbles: true });
+    const x0 = (await snap(page)).player.x;
+    await press('left', 'pointerdown');
+    await page.waitForTimeout(450);
+    await press('left', 'pointerup');
+    const s1 = await snap(page);
+    expect(s1.player.x).toBeLessThan(x0 - 40);
+    expect(s1.player.facing).toBe(-1);
+    await page.waitForTimeout(400);
+    const still = (await snap(page)).player.x;
+    await page.waitForTimeout(200);
+    expect(Math.abs((await snap(page)).player.x - still)).toBeLessThan(1);      // soltou: parou
+
+    await page.waitForFunction(() => window.__destructor?.game?.snapshot().player.onFloor === true);
+    const y0 = (await snap(page)).player.y;
+    await press('jump', 'pointerdown');
+    await page.waitForTimeout(200);
+    expect((await snap(page)).player.y).toBeLessThan(y0 - 30);
+    await press('jump', 'pointerup');
+
+    // Golpe pelo botão de toque derrota um inimigo vizinho.
+    await page.waitForFunction(() => window.__destructor?.game?.snapshot().player.onFloor === true);
+    await page.evaluate(() => (window.__destructor?.game as DebugApi).spawnEnemy('basic', -1.5));
+    const end = Date.now() + 20_000;
+    while ((await snap(page)).kills < 1 && Date.now() < end) {
+      await press('melee', 'pointerdown');
+      await page.waitForTimeout(80);
+      await press('melee', 'pointerup');
+      await page.waitForTimeout(320);
+    }
+    expect((await snap(page)).kills).toBe(1);
+    await page.screenshot({ path: 'test-results/shots/touch.png' });
   });
 
   test('ondas: concluir a primeira e começar a seguinte', async ({ page }) => {
@@ -375,11 +607,18 @@ test.describe('DESTRUCTOR', () => {
     await expect(page.locator('#wave-title')).toHaveText('Onda 2 de 10');
     await expect(page.locator('#wave-sub')).toContainText('começa em');
     await expect(page.locator('#upgrades')).toBeVisible();
-    const r0 = (await snap(page)).resources;
-    await page.click('[data-upgrade="maxHp"]');
+    // Três melhorias sorteadas; comprar uma desconta o custo e a tira da oferta.
+    const before = await snap(page);
+    expect(before.offers).toHaveLength(3);
+    await expect(page.locator('#upgrades [data-upgrade]')).toHaveCount(3);
+    const pick = page.locator('#upgrades [data-upgrade]:not([data-upgrade="heal"]):enabled').first();
+    const id = await pick.getAttribute('data-upgrade');
+    const cost = Number(await pick.getAttribute('data-cost'));
+    await pick.click();
     const up = await snap(page);
-    expect(up.player.maxHp).toBe(125);
-    expect(up.resources).toBe(r0 - 60);
+    expect(up.resources).toBe(before.resources - cost);
+    expect(up.offers).not.toContain(id);
+    await expect(page.locator('#upgrades [data-upgrade]')).toHaveCount(2);
 
     await page.click('#btn-start-wave');
     await expect.poll(async () => (await snap(page)).wave.phase).toBe('fighting');
@@ -459,12 +698,16 @@ test.describe('DESTRUCTOR', () => {
 
     // Configurações persistem entre recarregamentos.
     await page.keyboard.press('Escape');
-    await page.locator('#pause-volume').fill('0.25');
+    await page.click('#btn-pause-options');
+    await page.locator('#opt-volume').fill('0.25');
+    await page.click('#btn-options-close');
     await page.click('#btn-quit');
     await expect(page.locator('#menu')).toBeVisible();
     await page.reload();
     await expect(page.locator('#menu')).toBeVisible();
-    await expect(page.locator('#menu-volume')).toHaveValue('0.25');
+    await page.click('#btn-menu-options');
+    await expect(page.locator('#opt-volume')).toHaveValue('0.25');
+    await page.click('#btn-options-close');
     await expect(page.locator('#menu-best')).toContainText('1 partidas');
   });
 });

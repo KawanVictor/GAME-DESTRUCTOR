@@ -6,6 +6,8 @@ export interface DebugSnapshot {
   time: number;
   paused: boolean;
   outcome: string;
+  arena: string;
+  offers: string[];
   player: { x: number; y: number; hp: number; maxHp: number; facing: number; onFloor: boolean; tx: number; ty: number };
   resources: number;
   kills: number;
@@ -21,6 +23,10 @@ export interface DebugApi {
   snapshot(): DebugSnapshot;
   /** Id do bloco na célula. */
   cell(tx: number, ty: number): string;
+  /** Resistência atual do bloco na célula. */
+  cellHp(tx: number, ty: number): number;
+  /** Aplica dano a um bloco (para testar o reparo). */
+  damageCell(tx: number, ty: number, amount: number): void;
   /** Centro da célula em coordenadas da página (para cliques). */
   cellToClient(tx: number, ty: number): { x: number; y: number };
   /** Cria um inimigo avulso a `tiles` do herói (não conta para a onda). */

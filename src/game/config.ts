@@ -66,10 +66,51 @@ export const TURRET = {
   projectileSpeed: 520,
 } as const;
 
+/** Mira assistida do disparo: procura um inimigo dentro deste cone à frente do herói. */
+export const AIM = {
+  coneDegrees: 55,
+} as const;
+
+export const DASH = {
+  speed: 640,
+  /** Duração do avanço, em segundos. */
+  duration: 0.16,
+  cooldown: 2.2,
+  /** Invulnerabilidade concedida ao iniciar a investida. */
+  invulnerability: 0.24,
+} as const;
+
+export const REPAIR = {
+  /** Fração do custo cobrada para restaurar toda a resistência (proporcional ao dano). */
+  costRatio: 0.5,
+} as const;
+
+/** Golpe de área do chefe ao aterrissar de um salto. */
+export const BOSS_SLAM = {
+  interval: 4.5,
+  windup: 0.6,
+  /** Raio do dano ao herói, em tiles. */
+  radius: 3,
+  damage: 28,
+  /** Raio e dano a blocos. */
+  blockRadius: 2,
+  blockDamage: 70,
+  /** O chefe aparece a cada tantas ondas. */
+  every: 5,
+} as const;
+
+/** Melhorias à venda no preparo. A cada preparo o jogo oferece algumas, sorteadas. */
 export const UPGRADES = {
   maxHp: { cost: 60, amount: 25, label: '+25 vida máxima' },
   damage: { cost: 70, amount: 0.2, label: '+20% de dano' },
   heal: { cost: 30, amount: 40, label: 'Curar 40' },
+  fireRate: { cost: 60, amount: 0.15, label: 'Disparo 15% mais rápido' },
+  speed: { cost: 50, amount: 0.08, label: '+8% de velocidade' },
+  turret: { cost: 70, amount: 0.25, label: 'Torretas +25% de dano' },
+  dash: { cost: 45, amount: 0.2, label: 'Investida 20% mais rápida' },
 } as const;
 
 export type UpgradeId = keyof typeof UPGRADES;
+export const UPGRADE_IDS = Object.keys(UPGRADES) as UpgradeId[];
+/** Quantas melhorias são oferecidas por preparo. */
+export const UPGRADE_OFFERS = 3;

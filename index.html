@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>DESTRUCTOR</title>
 </head>
 <body>
@@ -16,21 +16,24 @@
         <div class="card">
           <h1 class="logo">DESTRUCTOR</h1>
           <p class="tagline">Construa. Defenda. Destrua.</p>
+          <div class="arenas" id="arena-list" role="radiogroup" aria-label="Arena"></div>
+          <p id="arena-desc" class="muted"></p>
           <div class="stack">
             <button id="btn-play" class="btn primary">Jogar</button>
-            <button id="btn-howto" class="btn" aria-expanded="false" aria-controls="howto">Controles</button>
+            <div class="row">
+              <button id="btn-howto" class="btn" aria-expanded="false" aria-controls="howto">Controles</button>
+              <button id="btn-menu-options" class="btn">Opções</button>
+            </div>
           </div>
           <div id="howto" class="howto hidden">
             <ul>
-              <li><kbd>A</kbd>/<kbd>D</kbd> ou setas — mover · <kbd>Espaço</kbd> — pular (segure para ir mais alto)</li>
-              <li><kbd>J</kbd> — golpe · <kbd>K</kbd> — disparo</li>
-              <li><kbd>B</kbd> — menu de construção · <kbd>1</kbd>–<kbd>7</kbd> — escolher peça</li>
-              <li>Clique esquerdo — construir · clique direito — cancelar · <kbd>R</kbd> — demolição</li>
-              <li><kbd>S</kbd> + <kbd>Espaço</kbd> — descer de uma plataforma · <kbd>Enter</kbd> — começar a onda · <kbd>Esc</kbd> — pausar</li>
+              <li><kbd data-key="left"></kbd>/<kbd data-key="right"></kbd> — mover · <kbd data-key="jump"></kbd> — pular (segure para ir mais alto)</li>
+              <li><kbd data-key="melee"></kbd> — golpe · <kbd data-key="shoot"></kbd> — disparo (mira sozinho no inimigo à frente) · <kbd data-key="dash"></kbd> — investida</li>
+              <li><kbd data-key="build"></kbd> — menu de construção · <kbd>1</kbd>–<kbd>7</kbd> — escolher peça</li>
+              <li>Clique esquerdo — confirmar · clique direito — cancelar · <kbd data-key="demolish"></kbd> — demolir · <kbd data-key="repair"></kbd> — reparar</li>
+              <li><kbd data-key="down"></kbd> + <kbd data-key="jump"></kbd> — descer de uma plataforma · <kbd data-key="startWave"></kbd> — começar a onda · <kbd>Esc</kbd> — pausar</li>
             </ul>
           </div>
-          <label class="slider">Volume <input id="menu-volume" type="range" min="0" max="1" step="0.05"></label>
-          <label class="check"><input id="menu-mute" type="checkbox"> Sem som</label>
           <p id="menu-best" class="muted"></p>
           <p id="menu-storage" class="muted warn hidden">O navegador bloqueou o salvamento: recorde e configurações valem só nesta sessão.</p>
         </div>
@@ -46,9 +49,13 @@
           <div class="panel" id="hud-wave">
             <div id="wave-title"></div>
             <div id="wave-sub" class="muted"></div>
-            <button id="btn-start-wave" class="btn small primary hidden">Começar agora (Enter)</button>
+            <div id="boss" class="hidden"><span id="boss-name"></span><div class="bar boss"><div id="boss-fill"></div></div></div>
+            <button id="btn-start-wave" class="btn small primary hidden">Começar agora (<span data-key="startWave"></span>)</button>
           </div>
-          <button id="btn-pause" class="btn small" aria-label="Pausar">II</button>
+          <div class="top-right">
+            <button id="btn-build" class="btn small">Construir <kbd data-key="build"></kbd></button>
+            <button id="btn-pause" class="btn small" aria-label="Pausar">II</button>
+          </div>
         </div>
 
         <div id="banner" class="hidden"><h2 id="banner-title"></h2><p id="banner-sub"></p></div>
@@ -57,16 +64,32 @@
 
         <div class="hud-bottom">
           <div class="panel weapons">
-            <div class="weapon"><span>Lâmina <kbd>J</kbd></span><div class="cd"><div id="cd-melee"></div></div></div>
-            <div class="weapon"><span>Disparador <kbd>K</kbd></span><div class="cd"><div id="cd-shot"></div></div></div>
+            <div class="weapon"><span>Lâmina <kbd data-key="melee"></kbd></span><div class="cd"><div id="cd-melee"></div></div></div>
+            <div class="weapon"><span>Disparador <kbd data-key="shoot"></kbd></span><div class="cd"><div id="cd-shot"></div></div></div>
+            <div class="weapon"><span>Investida <kbd data-key="dash"></kbd></span><div class="cd"><div id="cd-dash"></div></div></div>
           </div>
           <div class="panel hidden" id="upgrades" aria-label="Melhorias"></div>
-          <button id="btn-build" class="btn small">Construir <kbd>B</kbd></button>
+          <span></span>
         </div>
 
         <div id="build-menu" class="panel hidden" aria-label="Menu de construção">
           <div id="build-items"></div>
           <div id="build-desc" class="muted"></div>
+        </div>
+
+        <!-- Controles de toque -->
+        <div id="touch" class="hidden" aria-label="Controles de toque">
+          <div class="pad left">
+            <button data-touch="left" aria-label="Esquerda">◀</button>
+            <button data-touch="right" aria-label="Direita">▶</button>
+            <button data-touch="down" aria-label="Baixo" class="minor">▼</button>
+          </div>
+          <div class="pad right">
+            <button data-touch="dash" aria-label="Investida" class="minor">»</button>
+            <button data-touch="shoot" aria-label="Disparo">●</button>
+            <button data-touch="melee" aria-label="Golpe">⚔</button>
+            <button data-touch="jump" aria-label="Pulo" class="major">▲</button>
+          </div>
         </div>
       </div>
 
@@ -77,10 +100,34 @@
           <div class="stack">
             <button id="btn-resume" class="btn primary">Continuar</button>
             <button id="btn-restart" class="btn">Reiniciar partida</button>
+            <button id="btn-pause-options" class="btn">Opções</button>
             <button id="btn-quit" class="btn">Menu inicial</button>
           </div>
-          <label class="slider">Volume <input id="pause-volume" type="range" min="0" max="1" step="0.05"></label>
-          <label class="check"><input id="pause-mute" type="checkbox"> Sem som</label>
+        </div>
+      </section>
+
+      <!-- Opções: som, toque e teclas (aberta do menu ou da pausa) -->
+      <section id="options" class="screen dim hidden" aria-label="Opções">
+        <div class="card wide">
+          <h2>Opções</h2>
+          <label class="slider">Volume <input id="opt-volume" type="range" min="0" max="1" step="0.05"></label>
+          <div class="row center">
+            <label class="check"><input id="opt-mute" type="checkbox"> Sem som</label>
+            <label class="check"><input id="opt-music" type="checkbox"> Música</label>
+          </div>
+          <label class="slider">Controles de toque
+            <select id="opt-touch">
+              <option value="auto">Automático</option>
+              <option value="on">Sempre</option>
+              <option value="off">Nunca</option>
+            </select>
+          </label>
+          <h3>Teclas <span class="muted">— clique em uma e aperte a nova tecla</span></h3>
+          <div id="key-list" class="keys"></div>
+          <div class="row center">
+            <button id="btn-keys-reset" class="btn small">Restaurar teclas padrão</button>
+            <button id="btn-options-close" class="btn small primary">Fechar</button>
+          </div>
         </div>
       </section>
 

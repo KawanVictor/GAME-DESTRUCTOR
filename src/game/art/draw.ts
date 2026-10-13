@@ -251,7 +251,7 @@ export function drawEnemy(c: Ctx, type: EnemyType, i: number): void {
     c.save(); c.shadowColor = '#fff3a3'; c.shadowBlur = 5;
     tri(c, 31, by - 4, 38, by - 2, 31, by, '#fff3a3'); c.restore();
     if (attack) tri(c, 38, by + 2, 46, by + 2, 41, by + 7, '#fff');
-  } else {
+  } else if (type === 'tank') {
     const by = 30 - Math.abs(Math.cos(t)) * 1.2;
     limb(c, 24, 50, 10, sw * 0.4, 12, '#22302a'); limb(c, 44, 50, 10, -sw * 0.4, 12, '#22302a');
     limb(c, 14, by - 8, 20, attack ? 1.9 : -0.15 + sw * 0.2, 11, '#3d5548');
@@ -264,6 +264,51 @@ export function drawEnemy(c: Ctx, type: EnemyType, i: number): void {
     c.save(); c.shadowColor = '#ff5d73'; c.shadowBlur = 8; c.fillStyle = '#ff5d73';
     c.fillRect(40, by - 25, 7, 3); c.restore();
     limb(c, 52, by - 8, 21, attack ? 1.7 : 0.2 - sw * 0.2, 12, '#55735f');
+  } else if (type === 'flyer') {
+    // Vespa: asas batendo, corpo listrado, ferrão.
+    const by = 18 + Math.sin(t) * 1.5;
+    const flap = attack ? -4 : sw * 9;
+    c.fillStyle = 'rgba(200,235,255,0.75)';
+    c.beginPath(); c.ellipse(20, by - 9 - flap * 0.4, 9, 5 + Math.abs(flap) * 0.2, -0.5, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(28, by - 9 + flap * 0.4, 9, 5 + Math.abs(flap) * 0.2, 0.4, 0, 7); c.fill();
+    tri(c, 12, by - 2, 2, by + (attack ? 6 : 1), 12, by + 4, '#3a2a12');
+    c.fillStyle = grad(c, by - 8, by + 8, '#ffd84a', '#e59a12');
+    c.beginPath(); c.ellipse(23, by, 13, 8, 0, 0, 7); c.fill();
+    c.fillStyle = '#2a1f10';
+    for (const x of [17, 23]) c.fillRect(x, by - 7.5, 3, 15);
+    c.beginPath(); c.arc(35, by - 1, 6.5, 0, 7); c.fill();
+    c.save(); c.shadowColor = '#ff5d73'; c.shadowBlur = 5; c.fillStyle = '#ff5d73';
+    c.beginPath(); c.arc(38, by - 2, 2.2, 0, 7); c.fill(); c.restore();
+  } else if (type === 'spitter') {
+    // Cuspidor: corpo bojudo e um bocal comprido apontado para a frente.
+    const by = 25 - Math.abs(Math.cos(t)) * 1.2;
+    limb(c, 16, 34, 9, sw * 0.6, 5, '#1f4a3a'); limb(c, 28, 34, 9, -sw * 0.6, 5, '#1f4a3a');
+    const g = c.createRadialGradient(18, by - 6, 2, 22, by, 17);
+    g.addColorStop(0, '#9cf0b4'); g.addColorStop(1, '#2f9a66');
+    c.fillStyle = g; c.beginPath(); c.ellipse(22, by, 14, 13, 0, 0, 7); c.fill();
+    c.fillStyle = '#c8ff7a';
+    for (const [x, y, r] of [[14, by + 3, 3], [20, by + 7, 2.2], [15, by - 5, 2]]) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+    c.fillStyle = '#267a52'; rr(c, 30, by - 7, attack ? 15 : 11, 8, 3); c.fill();
+    c.fillStyle = '#123a28'; c.beginPath(); c.arc(attack ? 44 : 40, by - 3, 3.2, 0, 7); c.fill();
+    if (attack) { c.save(); c.shadowColor = '#c8ff7a'; c.shadowBlur = 6; c.fillStyle = '#c8ff7a'; c.beginPath(); c.arc(44, by - 3, 2, 0, 7); c.fill(); c.restore(); }
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(26, by - 7, 4, 0, 7); c.fill();
+    c.fillStyle = '#123a28'; c.beginPath(); c.arc(27.5, by - 7, 2, 0, 7); c.fill();
+  } else {
+    // Titã (chefe): couraça, chifres e um núcleo brilhante no peito.
+    const by = 46 - Math.abs(Math.cos(t)) * 1.6;
+    limb(c, 36, 74, 14, sw * 0.35, 18, '#2a1d33'); limb(c, 64, 74, 14, -sw * 0.35, 18, '#2a1d33');
+    limb(c, 22, by - 14, 30, attack ? 2.3 : -0.2 + sw * 0.15, 16, '#4a3560');
+    rr(c, 20, by - 30, 60, 62, 14); c.fillStyle = grad(c, by - 30, by + 32, '#8a6bb0', '#3a2850'); c.fill();
+    c.strokeStyle = '#1c1228'; c.lineWidth = 3; c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.13)'; rr(c, 27, by - 23, 46, 12, 5); c.fill();
+    c.fillStyle = '#2c1e3d'; rr(c, 27, by + 12, 46, 8, 4); c.fill(); rr(c, 27, by + 23, 46, 6, 3); c.fill();
+    tri(c, 20, by - 18, 8, by - 40, 34, by - 28, '#e6dcf5'); tri(c, 80, by - 18, 92, by - 40, 66, by - 28, '#e6dcf5');
+    rr(c, 36, by - 46, 28, 20, 7); c.fillStyle = '#5a4276'; c.fill();
+    tri(c, 38, by - 44, 34, by - 58, 46, by - 46, '#e6dcf5'); tri(c, 62, by - 44, 66, by - 58, 54, by - 46, '#e6dcf5');
+    c.save(); c.shadowColor = '#ff5d73'; c.shadowBlur = 10; c.fillStyle = attack ? '#ffffff' : '#ff5d73';
+    c.fillRect(48, by - 39, 5, 4); c.fillRect(57, by - 39, 5, 4);
+    c.beginPath(); c.arc(50, by - 2, attack ? 9 : 7, 0, 7); c.fill(); c.restore();
+    limb(c, 78, by - 14, 30, attack ? 2.0 : 0.25 - sw * 0.15, 17, '#6a4f88');
   }
   c.restore();
 }
@@ -278,6 +323,12 @@ export function drawBullet(c: Ctx): void {          // 18×8
 export function drawTurretBullet(c: Ctx): void {    // 10×10
   c.save(); c.shadowColor = '#ffb347'; c.shadowBlur = 6;
   c.fillStyle = '#ffe1a8'; c.beginPath(); c.arc(5, 5, 3, 0, 7); c.fill(); c.restore();
+}
+
+export function drawEnemyBullet(c: Ctx): void {     // 12×12
+  c.save(); c.shadowColor = '#c8ff7a'; c.shadowBlur = 6;
+  c.fillStyle = '#c8ff7a'; c.beginPath(); c.arc(6, 6, 4, 0, 7); c.fill(); c.restore();
+  c.fillStyle = '#f4ffd8'; c.beginPath(); c.arc(5, 5, 1.6, 0, 7); c.fill();
 }
 
 export function drawSpark(c: Ctx): void {           // 8×8

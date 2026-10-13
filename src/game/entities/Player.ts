@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { PLAYER, TILE } from '../config';
+import { DASH, PLAYER, TILE } from '../config';
 import { MELEE, RANGED } from '../data/weapons';
 import type { BuildingSystem } from '../systems/BuildingSystem';
 import { Cooldown, type Health, SwingTracker } from '../systems/CombatSystem';
+import type { MatchMods } from '../systems/MatchState';
 import type { Rect } from '../types/game';
 
 export interface PlayerInput {
@@ -13,6 +14,7 @@ export interface PlayerInput {
   jumpPressed: boolean;
   melee: boolean;
   shoot: boolean;
+  dashPressed: boolean;
 }
 
 export interface PlayerHooks {
@@ -21,6 +23,7 @@ export interface PlayerHooks {
   onJumpPad(): void;
   onMelee(): void;
   onShoot(): void;
+  onDash(): void;
 }
 
 /**
@@ -33,15 +36,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   dropTimer = 0;
   readonly meleeCd = new Cooldown();
   readonly shotCd = new Cooldown();
+  readonly dashCd = new Cooldown();
   readonly swing = new SwingTracker();
 
   private coyote = 0;
   private buffer = 0;
   private hurtLock = 0;
+  private dashTimer = 0;
   private jumping = false;
   private wasOnFloor = true;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, readonly health: Health, private readonly building: BuildingSystem) {
+  constructor(
+    scene: Phaser.Scene, x: number, y: number,
+    readonly health: Health,
+    private readonly building: BuildingSystem,
+    private readonly mods: MatchMods,
+  ) {
     super(scene, x, y, 'player', 0);
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -67,6 +77,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return b.blocked.down || b.touching.down;
   }
 
+  get dashing(): boolean {
+    return this.dashTimer > 0;
+  }
+
   /** Área atingida pelo golpe corpo a corpo, à frente do herói. */
   get meleeRect(): Rect {
     const b = this.arcade;
@@ -86,6 +100,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.buffer = input.jumpPressed ? PLAYER.jumpBuffer : this.buffer - dt;
     if (this.dropTimer > 0) this.dropTimer -= dt;
     if (this.hurtLock > 0) this.hurtLock -= dt;
+
+    // --- investida: avanço curto em linha reta, invulnerável.
+    if (input.dashPressed && this.hurtLock <= 0 && !this.dashing && this.dashCd.trigger(now, DASH.cooldown * this.mods.dashCooldown)) {
+      const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+      if (dir !== 0) this.facing = dir > 0 ? 1 : -1;
+      this.dashTimer = DASH.duration;
+      this.jumping = false;
+      this.health.shield(now, DASH.invulnerability);
+      body.setAllowGravity(false);
+      body.setMaxVelocityX(DASH.speed);
+      hooks.onDash();
+    }
+    if (this.dashing) {
+      this.dashTimer -= dt;
+      body.setAcceleration(0, 0);
+      body.setVelocity(this.facing * DASH.speed, 0);
+      if (this.dashTimer <= 0) {
+        body.setAllowGravity(true);
+        body.setVelocityX(this.facing * PLAYER.maxSpeed * this.mods.moveSpeed);
+      }
+      this.setFlipX(this.facing < 0);
+      this.setAlpha(0.6);
+      this.play('player-run', true);
+      this.wasOnFloor = onFloor;
+      return;
+    }
+    body.setMaxVelocityX(PLAYER.maxSpeed * this.mods.moveSpeed);
 
     // --- horizontal: aceleração controlada; ao soltar, o arrasto freia.
     const dir = this.hurtLock > 0 ? 0 : (input.right ? 1 : 0) - (input.left ? 1 : 0);
@@ -135,7 +176,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.play('player-attack', true);
         hooks.onMelee();
       }
-      if (input.shoot && this.shotCd.trigger(now, RANGED.cooldown)) hooks.onShoot();
+      if (input.shoot && this.shotCd.trigger(now, RANGED.cooldown * this.mods.shotCooldown)) hooks.onShoot();
     }
 
     // --- visual

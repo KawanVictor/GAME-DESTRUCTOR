@@ -13,11 +13,14 @@ export interface CollisionRefs {
   pickups: Phaser.GameObjects.Group;
   bullets: Phaser.Physics.Arcade.Group;
   turretBullets: Phaser.Physics.Arcade.Group;
+  enemyBullets: Phaser.Physics.Arcade.Group;
 }
 
 export interface CollisionHandlers {
   bulletHitsTile(bullet: Projectile, tileX: number, tileY: number): void;
   bulletHitsEnemy(bullet: Projectile, enemy: Enemy): void;
+  enemyBulletHitsTile(bullet: Projectile, tileX: number, tileY: number): void;
+  enemyBulletHitsPlayer(bullet: Projectile): void;
   enemyTouchesPlayer(enemy: Enemy): void;
   playerCollects(pickup: Phaser.Physics.Arcade.Image): void;
 }
@@ -56,6 +59,13 @@ export function setupCollisions(scene: Phaser.Scene, r: CollisionRefs, h: Collis
   };
   physics.add.overlap(r.bullets, r.enemies, hitEnemy);
   physics.add.overlap(r.turretBullets, r.enemies, hitEnemy);
+
+  // Disparos inimigos: qualquer bloco (inclusive a parede defensiva) serve de cobertura.
+  physics.add.collider(r.enemyBullets, r.layer, (b, t) => {
+    const tile = t as Tile;
+    h.enemyBulletHitsTile(b as Projectile, tile.x, tile.y);
+  });
+  physics.add.overlap(r.player, r.enemyBullets, (a, b) => h.enemyBulletHitsPlayer((a instanceof Projectile ? a : b) as Projectile));
 
   physics.add.overlap(r.player, r.enemies, (_p, e) => {
     const enemy = e as Enemy;

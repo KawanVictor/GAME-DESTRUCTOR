@@ -1,9 +1,13 @@
 import Phaser from 'phaser';
 import { VIEW_HEIGHT, VIEW_WIDTH } from '../config';
-import { audio, save } from '../services';
-import { el, onClick, show } from '../ui/dom';
-import { bindVolume } from '../ui/PauseMenu';
 import { setDebugScene } from '../debug';
+import { audio, save } from '../services';
+import { ARENA_IDS } from '../systems/SaveSystem';
+import type { ArenaId } from '../types/game';
+import { el, onClick, show } from '../ui/dom';
+import { applyKeyLabels } from '../ui/keys';
+import { openOptions, optionsOpen } from '../ui/Options';
+import { ARENAS } from '../world/LevelBuilder';
 
 /** Menu inicial: fundo animado no canvas, controles em HTML. */
 export class MenuScene extends Phaser.Scene {
@@ -35,23 +39,47 @@ export class MenuScene extends Phaser.Scene {
       show(panel, open);
       el('btn-howto').setAttribute('aria-expanded', String(open));
     });
-    bindVolume('menu-volume', 'menu-mute', s);
+    onClick(el('btn-menu-options'), s, () => openOptions(() => applyKeyLabels()));
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Enter' && !e.repeat) start();
+      if (e.code === 'Enter' && !e.repeat && !optionsOpen()) start();
     }, { signal: s });
 
+    this.renderArenas(s);
+    applyKeyLabels();
     const d = save.data;
     el('menu-best').textContent = d.stats.games > 0
       ? `Melhor resultado: onda ${d.bestWave} · ${d.stats.kills} inimigos derrotados em ${d.stats.games} partidas`
       : 'Sobreviva a 10 ondas. Use o cenário a seu favor.';
     show(el('menu-storage'), !save.persistent);
     show(el('menu'), true);
+    audio.setMusic('calm');
     setDebugScene('menu', null);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.abort.abort();
       show(el('menu'), false);
     });
+  }
+
+  /** Botões de escolha da arena; a escolha fica salva. */
+  private renderArenas(signal: AbortSignal): void {
+    const list = el('arena-list');
+    list.innerHTML = '';
+    const select = (id: ArenaId): void => {
+      save.updateSettings({ arena: id });
+      list.querySelectorAll<HTMLElement>('[data-arena]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.arena === id)));
+      el('arena-desc').textContent = ARENAS[id].description;
+    };
+    for (const id of ARENA_IDS) {
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.dataset.arena = id;
+      b.setAttribute('role', 'radio');
+      b.textContent = ARENAS[id].name;
+      onClick(b, signal, () => { audio.play('click'); select(id); });
+      list.appendChild(b);
+    }
+    select(save.data.settings.arena);
   }
 
   override update(_time: number, delta: number): void {

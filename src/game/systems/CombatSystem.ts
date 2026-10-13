@@ -38,6 +38,11 @@ export class Health {
     return dealt;
   }
 
+  /** Concede invulnerabilidade por `seconds` (ex.: investida). Nunca encurta uma já ativa. */
+  shield(now: number, seconds: number): void {
+    this.invulnerableUntil = Math.max(this.invulnerableUntil, now + seconds);
+  }
+
   heal(amount: number): number {
     if (this.dead || !(amount > 0)) return 0;
     const healed = Math.min(this.maximum - this.current, amount);
@@ -99,6 +104,39 @@ export class SwingTracker {
     this.hit.add(targetId);
     return true;
   }
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * Mira assistida: o alvo mais próximo à frente do atirador, dentro do cone e
+ * do alcance, com linha de visão. Retorna null se não houver (tiro reto).
+ */
+export function pickAimTarget<T extends Point>(
+  origin: Point,
+  facing: 1 | -1,
+  candidates: readonly T[],
+  range: number,
+  coneDegrees: number,
+  hasLineOfSight: (x: number, y: number) => boolean,
+): T | null {
+  const cone = (coneDegrees * Math.PI) / 180;
+  let best: T | null = null;
+  let bestDist = range;
+  for (const c of candidates) {
+    const dx = (c.x - origin.x) * facing;
+    const dy = c.y - origin.y;
+    if (dx <= 0) continue;                              // atrás do atirador
+    const dist = Math.hypot(dx, dy);
+    if (dist > bestDist || Math.abs(Math.atan2(dy, dx)) > cone) continue;
+    if (!hasLineOfSight(c.x, c.y)) continue;
+    best = c;
+    bestDist = dist;
+  }
+  return best;
 }
 
 /** Dano de explosão: máximo no centro, 40% na borda, zero fora do raio. */

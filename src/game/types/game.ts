@@ -51,10 +51,26 @@ export interface BlockDef {
   drops?: number;
 }
 
-export type EnemyType = 'basic' | 'fast' | 'tank';
+export type EnemyType = 'basic' | 'fast' | 'tank' | 'flyer' | 'spitter' | 'boss';
+
+/** Como o inimigo se move e ataca. */
+export type EnemyBehavior = 'ground' | 'flyer' | 'ranged' | 'boss';
+
+export interface EnemyRangedDef {
+  damage: number;
+  speed: number;
+  /** Segundos entre disparos. */
+  interval: number;
+  /** Alcance do disparo, em tiles. */
+  rangeTiles: number;
+  /** Distância que tenta manter do herói, em tiles. */
+  keepTiles: number;
+}
 
 export interface EnemyDef {
   type: EnemyType;
+  behavior: EnemyBehavior;
+  ranged?: EnemyRangedDef;
   maxHp: number;
   speed: number;
   /** Dano por golpe no herói. */
@@ -120,7 +136,8 @@ export type BuildFailure =
   | 'would_trap_player'
   | 'protected_zone'
   | 'nothing_to_remove'
-  | 'not_owned';
+  | 'not_owned'
+  | 'not_damaged';
 
 export interface BuildCheck {
   ok: boolean;
@@ -143,6 +160,7 @@ export interface BuildContext {
 export type BuildEvent =
   | { type: 'placed'; x: number; y: number; block: BlockDef }
   | { type: 'removed'; x: number; y: number; block: BlockDef; refund: number }
+  | { type: 'repaired'; x: number; y: number; block: BlockDef; cost: number }
   | { type: 'damaged'; x: number; y: number; block: BlockDef; hp: number }
   | { type: 'destroyed'; x: number; y: number; block: BlockDef }
   | { type: 'explosion'; x: number; y: number; block: BlockDef; explosive: ExplosiveDef };
@@ -156,6 +174,10 @@ export interface WaveDef {
   spawnInterval: number;
   /** Materiais pagos ao concluir. */
   reward: number;
+  /** Onda de chefe. */
+  boss: boolean;
+  /** Multiplicador da vida dos inimigos nesta onda. */
+  hpScale: number;
 }
 
 export type Action =
@@ -165,13 +187,23 @@ export type Action =
   | 'jump'
   | 'melee'
   | 'shoot'
+  | 'dash'
   | 'build'
   | 'demolish'
+  | 'repair'
   | 'startWave';
+
+export type ArenaId = 'colina' | 'vale' | 'planalto';
+
+/** auto = aparece em telas de toque. */
+export type TouchMode = 'auto' | 'on' | 'off';
 
 export interface Settings {
   volume: number;
   muted: boolean;
+  music: boolean;
+  arena: ArenaId;
+  touch: TouchMode;
   /** Nomes de tecla do Phaser (ex.: 'A', 'LEFT', 'SPACE'). Remapeável. */
   bindings: Record<Action, string[]>;
 }
@@ -190,6 +222,8 @@ export interface SaveData {
 }
 
 export interface LevelData {
+  id: ArenaId;
+  name: string;
   cols: number;
   rows: number;
   /** Índices de bloco, linha a linha. */

@@ -1,6 +1,7 @@
 import { UPGRADES, type UpgradeId } from '../config';
 import type { WavePhase } from '../types/game';
 import { el, onClick, show } from './dom';
+import { applyKeyLabels } from './keys';
 
 export interface HudView {
   hp: number;
@@ -15,6 +16,11 @@ export interface HudView {
   /** 0 = pronta, 1 = recém-usada. */
   meleeCd: number;
   shotCd: number;
+  dashCd: number;
+  /** Melhorias à venda neste preparo. */
+  offers: readonly UpgradeId[];
+  /** Chefe em campo: nome e fração de vida. */
+  boss: { name: string; ratio: number } | null;
 }
 
 export interface HudCallbacks {
@@ -32,32 +38,41 @@ export class HUD {
   private toastTimer = 0;
   private upgradeButtons = new Map<UpgradeId, HTMLButtonElement>();
 
-  constructor(cb: HudCallbacks) {
+  constructor(private readonly cb: HudCallbacks) {
     const s = this.abort.signal;
     onClick(el('btn-pause'), s, cb.onPause);
     onClick(el('btn-start-wave'), s, cb.onStartWave);
     onClick(el('btn-build'), s, cb.onToggleBuild);
-    const box = el('upgrades');
-    box.innerHTML = '<span class="muted">Melhorias:</span>';
-    for (const id of Object.keys(UPGRADES) as UpgradeId[]) {
-      const b = document.createElement('button');
-      b.className = 'btn small';
-      b.dataset.upgrade = id;
-      b.innerHTML = `${UPGRADES[id].label} <span>${UPGRADES[id].cost}</span>`;
-      onClick(b, s, () => cb.onUpgrade(id));
-      box.appendChild(b);
-      this.upgradeButtons.set(id, b);
-    }
     show(el('hud'), true);
     show(el('banner'), false);
     show(el('toast'), false);
     show(el('build-tip'), false);
+    show(el('boss'), false);
+    applyKeyLabels(el('hud'));
   }
 
   private set(key: string, value: string, apply: (v: string) => void): void {
     if (this.cache.get(key) === value) return;
     this.cache.set(key, value);
     apply(value);
+  }
+
+  /** Recria os botões de melhoria quando a oferta muda. */
+  private renderOffers(offers: readonly UpgradeId[]): void {
+    const box = el('upgrades');
+    box.innerHTML = '<span class="muted">Melhorias:</span>';
+    this.upgradeButtons.clear();
+    for (const id of offers) {
+      const b = document.createElement('button');
+      b.className = 'btn small';
+      b.dataset.upgrade = id;
+      b.dataset.cost = String(UPGRADES[id].cost);
+      b.innerHTML = `${UPGRADES[id].label} <span>${UPGRADES[id].cost}</span>`;
+      onClick(b, this.abort.signal, () => this.cb.onUpgrade(id));
+      box.appendChild(b);
+      this.upgradeButtons.set(id, b);
+    }
+    if (!offers.length) box.insertAdjacentHTML('beforeend', '<span class="muted">esgotadas neste preparo</span>');
   }
 
   update(v: HudView): void {
@@ -81,12 +96,26 @@ export class HUD {
       show(el('btn-start-wave'), t === 'true');
       show(el('upgrades'), t === 'true');
     });
+
+    this.set('offers', v.offers.join(), () => {
+      this.renderOffers(v.offers);
+      for (const key of [...this.cache.keys()]) if (key.startsWith('up-')) this.cache.delete(key);
+    });
     for (const [id, b] of this.upgradeButtons) {
       const blocked = v.resources < UPGRADES[id].cost || (id === 'heal' && v.hp >= v.maxHp);
       this.set(`up-${id}`, String(blocked), (t) => { b.disabled = t === 'true'; });
     }
+
+    this.set('boss', v.boss ? `${v.boss.name}|${Math.round(v.boss.ratio * 100)}` : '', (t) => {
+      show(el('boss'), t !== '');
+      if (!v.boss) return;
+      el('boss-name').textContent = v.boss.name;
+      el('boss-fill').style.width = `${Math.max(0, v.boss.ratio * 100)}%`;
+    });
+
     this.set('cdm', (1 - v.meleeCd).toFixed(2), (t) => { el('cd-melee').style.width = `${Number(t) * 100}%`; });
     this.set('cds', (1 - v.shotCd).toFixed(2), (t) => { el('cd-shot').style.width = `${Number(t) * 100}%`; });
+    this.set('cdd', (1 - v.dashCd).toFixed(2), (t) => { el('cd-dash').style.width = `${Number(t) * 100}%`; });
   }
 
   banner(title: string, sub: string, ms = 2600): void {
@@ -115,6 +144,11 @@ export class HUD {
       node.classList.toggle('ok', ok);
       node.classList.toggle('bad', !ok);
     });
+  }
+
+  /** Atualiza as teclas mostradas (depois de um remapeamento). */
+  refreshKeys(): void {
+    applyKeyLabels(el('hud'));
   }
 
   destroy(): void {

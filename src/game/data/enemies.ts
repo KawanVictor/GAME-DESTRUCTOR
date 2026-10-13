@@ -1,51 +1,90 @@
+import { BOSS_SLAM } from '../config';
 import type { EnemyDef, EnemyType, WaveDef } from '../types/game';
 
 export const ENEMY_DEFS: Record<EnemyType, EnemyDef> = {
+  // Rastejador: patrulha e persegue.
   basic: {
-    // Rastejador
-    type: 'basic', maxHp: 40, speed: 72, damage: 10, attackInterval: 0.9, blockDamage: 9,
+    type: 'basic', behavior: 'ground', maxHp: 40, speed: 72, damage: 10, attackInterval: 0.9, blockDamage: 9,
     jumpTiles: 1, detectTiles: 9, reward: 8, knockback: 1,
     body: { width: 26, height: 28 }, frame: { width: 44, height: 40 },
   },
+  // Corredor: rápido, frágil, salta obstáculos.
   fast: {
-    // Corredor
-    type: 'fast', maxHp: 22, speed: 158, damage: 6, attackInterval: 0.6, blockDamage: 4,
+    type: 'fast', behavior: 'ground', maxHp: 22, speed: 158, damage: 6, attackInterval: 0.6, blockDamage: 4,
     jumpTiles: 3, detectTiles: 16, reward: 6, knockback: 1.2,
     body: { width: 26, height: 20 }, frame: { width: 48, height: 32 },
   },
+  // Colosso: lento, resistente, derruba estruturas.
   tank: {
-    // Colosso
-    type: 'tank', maxHp: 170, speed: 40, damage: 24, attackInterval: 1.3, blockDamage: 40,
+    type: 'tank', behavior: 'ground', maxHp: 170, speed: 40, damage: 24, attackInterval: 1.3, blockDamage: 40,
     jumpTiles: 1, detectTiles: 11, reward: 25, knockback: 0.25,
     body: { width: 42, height: 52 }, frame: { width: 68, height: 64 },
   },
+  // Vespa: voa por cima de paredes e mergulha no herói. Pede torretas ou tiro.
+  flyer: {
+    type: 'flyer', behavior: 'flyer', maxHp: 18, speed: 120, damage: 8, attackInterval: 1.0, blockDamage: 0,
+    jumpTiles: 0, detectTiles: 99, reward: 7, knockback: 1.3,
+    body: { width: 24, height: 18 }, frame: { width: 48, height: 34 },
+  },
+  // Cuspidor: mantém distância e atira. Paredes e blocos servem de cobertura.
+  spitter: {
+    type: 'spitter', behavior: 'ranged', maxHp: 32, speed: 62, damage: 8, attackInterval: 1.0, blockDamage: 6,
+    jumpTiles: 1, detectTiles: 14, reward: 12, knockback: 1,
+    body: { width: 26, height: 30 }, frame: { width: 46, height: 44 },
+    ranged: { damage: 9, speed: 300, interval: 2.2, rangeTiles: 9, keepTiles: 5 },
+  },
+  // Titã: chefe. Arrebenta estruturas e salta sobre o herói com um golpe de área.
+  boss: {
+    type: 'boss', behavior: 'boss', maxHp: 520, speed: 46, damage: 30, attackInterval: 1.4, blockDamage: 80,
+    jumpTiles: 2, detectTiles: 99, reward: 90, knockback: 0,
+    body: { width: 60, height: 76 }, frame: { width: 100, height: 92 },
+  },
 };
 
+export const ENEMY_NAMES: Record<EnemyType, string> = {
+  basic: 'Rastejador', fast: 'Corredor', tank: 'Colosso', flyer: 'Vespa', spitter: 'Cuspidor', boss: 'Titã',
+};
+
+/** Em que onda cada tipo estreia. */
+export const FIRST_WAVE: Record<EnemyType, number> = { basic: 1, fast: 2, flyer: 3, tank: 4, spitter: 5, boss: BOSS_SLAM.every };
+
+type Escort = Exclude<EnemyType, 'boss'>;
+
 /**
- * Composição da onda n (1, 2, 3...). Começa só com Rastejadores; Corredores
- * entram na onda 2 e Colossos na 4. A partir daí crescem quantidade e ritmo.
+ * Composição da onda n (1, 2, 3...). Cada tipo estreia em uma onda e depois
+ * cresce em quantidade; a cada 5 ondas vem o chefe, com escolta reduzida.
  */
 export function composeWave(n: number): WaveDef {
-  const basics = 2 + n;
-  const fasts = n >= 2 ? Math.floor(n * 0.9) : 0;
-  const tanks = n >= 4 ? Math.floor((n - 2) / 2) : 0;
-  // Intercala os tipos para a onda não vir em blocos previsíveis.
+  const boss = n % BOSS_SLAM.every === 0;
+  const escort = boss ? 0.55 : 1;
+  // Depois da estreia, cada tipo aparece ao menos uma vez por onda.
+  const amount = (type: Escort, base: number): number => (n >= FIRST_WAVE[type] ? Math.max(1, Math.floor(base * escort)) : 0);
+  const left: Record<Escort, number> = {
+    basic: amount('basic', 2 + n),
+    fast: amount('fast', n * 0.8),
+    flyer: amount('flyer', (n - 1) / 2),
+    tank: amount('tank', (n - 2) / 2),
+    spitter: amount('spitter', (n - 3) / 2),
+  };
+  // Intercala os tipos (rodízio) para a onda não vir em blocos previsíveis.
+  const order: Escort[] = ['basic', 'fast', 'basic', 'flyer', 'spitter', 'tank'];
   const enemies: EnemyType[] = [];
-  let b = 0;
-  let f = 0;
-  while (b < basics || f < fasts) {
-    if (b < basics) { enemies.push('basic'); b++; }
-    if (f < fasts && (enemies.length % 3 === 2 || b >= basics)) { enemies.push('fast'); f++; }
+  let remaining = Object.values(left).reduce((a, b) => a + b, 0);
+  for (let i = 0; remaining > 0; i++) {
+    const type = order[i % order.length];
+    if (left[type] <= 0) continue;
+    enemies.push(type);
+    left[type]--;
+    remaining--;
   }
-  // Colossos chegam espalhados, do meio para o fim.
-  for (let i = 0; i < tanks; i++) {
-    const at = Math.min(enemies.length, Math.floor(((i + 1) / (tanks + 1)) * enemies.length) + 1 + i);
-    enemies.splice(at, 0, 'tank');
-  }
+  if (boss) enemies.splice(Math.min(2, enemies.length), 0, 'boss');
   return {
     number: n,
     enemies,
-    spawnInterval: Math.max(0.55, 1.7 - n * 0.11),
-    reward: 30 + n * 10,
+    spawnInterval: Math.max(0.6, 1.8 - n * 0.1),
+    reward: 30 + n * 10 + (boss ? 60 : 0),
+    boss,
+    // A vida dos inimigos sobe devagar a cada onda.
+    hpScale: 1 + (n - 1) * 0.04,
   };
 }

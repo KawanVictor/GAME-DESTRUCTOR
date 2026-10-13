@@ -1,4 +1,4 @@
-import { BUILD, TILE } from '../config';
+import { BUILD, REPAIR, TILE } from '../config';
 import { blockById, blockByIndex, EMPTY } from '../data/blocks';
 import type {
   BlockDef, BlockId, BuildCheck, BuildContext, BuildEvent, BuildFailure, LevelData, Rect, RemoveResult,
@@ -16,8 +16,9 @@ export const FAILURE_TEXT: Record<BuildFailure, string> = {
   out_of_reach: 'Fora de alcance',
   would_trap_player: 'Isso prenderia o herói',
   protected_zone: 'Área protegida (portal inimigo)',
-  nothing_to_remove: 'Nada para demolir aqui',
-  not_owned: 'Só é possível demolir peças suas',
+  nothing_to_remove: 'Não há peça aqui',
+  not_owned: 'Essa peça não é sua',
+  not_damaged: 'A peça já está inteira',
 };
 
 /**
@@ -205,6 +206,39 @@ export class BuildingSystem {
     this.resources.add(result.refund);
     this.emit({ type: 'removed', x, y, block: def, refund: result.refund });
     this.dropUnsupported(x, y - 1);
+    return result;
+  }
+
+  // ---------------------------------------------------------------- reparo
+
+  /** Custo para restaurar a peça: metade do custo dela, proporcional ao dano sofrido. */
+  repairCost(x: number, y: number): number {
+    const def = this.get(x, y);
+    if (!this.isOwned(x, y) || !Number.isFinite(def.maxHp)) return 0;
+    const missing = 1 - Math.max(0, Math.min(1, this.hpAt(x, y) / def.maxHp));
+    return missing <= 0 ? 0 : Math.max(1, Math.ceil(def.cost * REPAIR.costRatio * missing));
+  }
+
+  checkRepair(x: number, y: number, ctx: BuildContext): BuildCheck {
+    const cost = this.repairCost(x, y);
+    const fail = (reason: BuildFailure): BuildCheck => ({ ok: false, cost, reason });
+    if (!this.inBounds(x, y)) return fail('out_of_bounds');
+    if (this.get(x, y).id === 'empty') return fail('nothing_to_remove');
+    if (!this.isOwned(x, y)) return fail('not_owned');
+    if (!this.inReach(x, y, ctx.player)) return fail('out_of_reach');
+    if (cost <= 0) return fail('not_damaged');
+    if (!this.resources.canAfford(cost)) return fail('insufficient_resources');
+    return { ok: true, cost };
+  }
+
+  /** Restaura toda a resistência de uma peça do jogador. */
+  repair(x: number, y: number, ctx: BuildContext): BuildCheck {
+    const result = this.checkRepair(x, y, ctx);
+    if (!result.ok) return result;
+    if (!this.resources.spend(result.cost)) return { ok: false, cost: result.cost, reason: 'insufficient_resources' };
+    const def = this.get(x, y);
+    this.hp[this.idx(x, y)] = def.maxHp;
+    this.emit({ type: 'repaired', x, y, block: def, cost: result.cost });
     return result;
   }
 

@@ -1,0 +1,107 @@
+/* DESTRUCTOR — interface HTML sobre o canvas. O #app é uma caixa 16:9 e a
+   UI usa unidades de contêiner (cqw), então tudo escala junto com o jogo. */
+:root {
+  --bg: #070b1f;
+  --panel: rgba(16, 21, 44, 0.78);
+  --line: rgba(140, 160, 255, 0.22);
+  --text: #eef2ff;
+  --muted: #9aa5cf;
+  --accent: #67e8f9;
+  --accent-2: #4f8cff;
+  --danger: #ff5d73;
+  --gold: #ffb347;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); overflow: hidden; }
+body { display: grid; place-items: center; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text); }
+
+#app { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; container-type: size; overflow: hidden; background: #000; }
+#game-root { position: absolute; inset: 0; }
+#game-root canvas { display: block; }
+#vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(4, 6, 18, 0.55) 100%); }
+#ui { position: absolute; inset: 0; pointer-events: none; font-size: clamp(9px, 1.45cqw, 22px); user-select: none; -webkit-user-select: none; }
+#ui > *, #hud > * { pointer-events: none; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+.warn { color: var(--gold); }
+kbd { font: inherit; font-size: 0.82em; padding: 0.05em 0.4em; border: 1px solid var(--line); border-radius: 0.35em; background: rgba(255, 255, 255, 0.08); }
+
+.panel { pointer-events: auto !important; background: var(--panel); border: 1px solid var(--line); border-radius: 0.8em; padding: 0.6em 0.8em; backdrop-filter: blur(6px); box-shadow: 0 0.4em 1.2em rgba(0, 0, 0, 0.35); }
+
+.btn { pointer-events: auto; font: inherit; font-weight: 650; color: var(--text); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--line); border-radius: 0.7em; padding: 0.65em 1.3em; cursor: pointer; transition: transform 0.08s, background 0.15s, border-color 0.15s; }
+.btn:hover { background: rgba(255, 255, 255, 0.16); border-color: var(--accent); }
+.btn:active { transform: translateY(1px) scale(0.98); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: linear-gradient(180deg, #5b9dff, #3a6fe0); border-color: transparent; }
+.btn.primary:hover { background: linear-gradient(180deg, #74adff, #4a7ff0); }
+.btn.small { padding: 0.4em 0.8em; font-size: 0.9em; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- telas (menu, pausa, fim) */
+.screen { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: auto !important; animation: fade 0.25s ease-out; }
+.screen.dim { background: rgba(5, 8, 22, 0.72); backdrop-filter: blur(3px); }
+@keyframes fade { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.card { width: min(34em, 88%); max-height: 94%; overflow: auto; text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 1.2em; padding: 1.6em 1.8em; backdrop-filter: blur(8px); box-shadow: 0 1em 3em rgba(0, 0, 0, 0.5); }
+.card h2 { font-size: 1.9em; margin-bottom: 0.5em; }
+.card p { margin: 0.4em 0; line-height: 1.4; }
+.logo { font-size: 3.6em; font-weight: 900; letter-spacing: 0.08em; background: linear-gradient(180deg, #ffffff, var(--accent) 55%, var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0.08em 0.25em rgba(79, 140, 255, 0.55)); }
+.tagline { color: var(--muted); letter-spacing: 0.25em; text-transform: uppercase; font-size: 0.85em; margin-bottom: 1.4em !important; }
+.stack { display: grid; gap: 0.6em; margin: 1em auto; width: min(18em, 100%); }
+.howto { text-align: left; font-size: 0.85em; margin: 0.6em 0; padding: 0.8em 1em; border: 1px solid var(--line); border-radius: 0.8em; }
+.howto ul { list-style: none; display: grid; gap: 0.45em; }
+.slider, .check { display: flex; align-items: center; justify-content: center; gap: 0.7em; margin-top: 0.7em; font-size: 0.9em; }
+input[type=range] { width: 11em; accent-color: var(--accent); }
+input[type=checkbox] { width: 1.1em; height: 1.1em; accent-color: var(--accent); }
+
+/* ---- HUD */
+#hud { position: absolute; inset: 0; }
+.hud-top { position: absolute; left: 1em; right: 1em; top: 0.9em; display: flex; justify-content: space-between; align-items: flex-start; gap: 1em; }
+#hud-stats { min-width: 15em; }
+.bar { position: relative; height: 1.25em; border-radius: 0.6em; background: rgba(0, 0, 0, 0.45); overflow: hidden; border: 1px solid var(--line); }
+#hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5d73, #ff8a5c); transition: width 0.15s; }
+#hp-text { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.78em; font-weight: 700; text-shadow: 0 1px 2px #000; }
+.res { margin-top: 0.45em; font-weight: 700; display: flex; align-items: center; gap: 0.35em; }
+.res .muted { font-weight: 400; font-size: 0.85em; }
+.gem { width: 0.9em; height: 0.9em; background: var(--gold); clip-path: polygon(50% 0, 100% 30%, 100% 70%, 50% 100%, 0 70%, 0 30%); display: inline-block; }
+#hud-wave { text-align: center; min-width: 17em; }
+#wave-title { font-weight: 800; font-size: 1.1em; }
+#wave-sub { font-size: 0.9em; margin-top: 0.15em; }
+#btn-start-wave { margin-top: 0.5em; }
+
+#banner { position: absolute; left: 0; right: 0; top: 37%; text-align: center; text-shadow: 0 0.1em 0.5em rgba(0, 0, 0, 0.8); animation: fade 0.3s ease-out; }
+#banner h2 { font-size: 2.6em; font-weight: 900; letter-spacing: 0.04em; color: #fff; }
+#banner p { font-size: 1.1em; color: var(--accent); font-weight: 600; }
+#toast { position: absolute; left: 50%; top: 11.3em; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--danger); border-radius: 0.7em; padding: 0.45em 1em; font-weight: 600; }
+#build-tip { position: absolute; left: 50%; top: 8.4em; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 0.7em; padding: 0.35em 0.9em; font-size: 0.9em; font-weight: 600; white-space: nowrap; }
+#toast.good { border-color: #4ee3a4; }
+#build-tip.ok { border-color: #4ee3a4; color: #b8ffe0; }
+#build-tip.bad { border-color: var(--danger); color: #ffc2cb; }
+
+.hud-bottom { position: absolute; left: 1em; right: 1em; bottom: 0.9em; display: flex; justify-content: space-between; align-items: flex-end; gap: 1em; }
+.weapons { display: grid; gap: 0.4em; min-width: 12em; font-size: 0.88em; font-weight: 600; }
+.weapon { display: grid; gap: 0.2em; }
+.cd { height: 0.35em; background: rgba(0, 0, 0, 0.5); border-radius: 0.2em; overflow: hidden; }
+.cd > div { height: 100%; width: 100%; background: var(--accent); }
+#upgrades { display: flex; gap: 0.4em; align-items: center; font-size: 0.85em; }
+#upgrades .btn { padding: 0.35em 0.7em; }
+#upgrades .btn span { color: var(--gold); }
+
+/* O menu de construção ocupa só a faixa inferior (abaixo da superfície do
+   chão), para nunca cobrir a área onde se constrói. */
+#build-menu { position: absolute; left: 50%; bottom: 0.7em; transform: translateX(-50%); padding: 0.4em 0.5em 0.3em; animation: fade 0.15s ease-out; }
+#build-items { display: flex; gap: 0.3em; justify-content: center; }
+.piece { pointer-events: auto; position: relative; width: 4.6em; padding: 0.3em 0.2em 0.2em; display: grid; justify-items: center; gap: 0.05em; font: inherit; font-size: 0.8em; color: var(--text); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); border-radius: 0.6em; cursor: pointer; transition: background 0.12s, border-color 0.12s, transform 0.08s; }
+.piece:hover { background: rgba(255, 255, 255, 0.14); }
+.piece:active { transform: scale(0.97); }
+.piece canvas, .piece .glyph { width: 2.3em; height: 2.3em; display: grid; place-items: center; font-size: 1em; }
+.piece .glyph { font-size: 1.6em; width: 1.44em; height: 1.44em; }
+.piece .cost { color: var(--gold); font-weight: 800; line-height: 1.1; }
+.piece .key { position: absolute; left: 0.35em; top: 0.15em; color: var(--muted); font-size: 0.85em; }
+.piece.selected { border-color: var(--accent); background: rgba(103, 232, 249, 0.18); box-shadow: 0 0 0.8em rgba(103, 232, 249, 0.35); }
+.piece.poor { opacity: 0.5; }
+.piece.poor .cost { color: var(--danger); }
+.piece.tool.selected { border-color: var(--danger); background: rgba(255, 93, 115, 0.2); box-shadow: 0 0 0.8em rgba(255, 93, 115, 0.35); }
+#build-desc { text-align: center; font-size: 0.78em; margin-top: 0.3em; min-height: 1.2em; white-space: nowrap; }
+#hud.building #upgrades { display: none !important; }
+
+#fatal { position: absolute; inset: 0; pointer-events: auto; background: #2a0a12; color: #fff; padding: 2em; white-space: pre-wrap; overflow: auto; user-select: text; -webkit-user-select: text; }

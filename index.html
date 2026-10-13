@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DESTRUCTOR</title>
+</head>
+<body>
+  <div id="app">
+    <div id="game-root"></div>
+    <div id="vignette" aria-hidden="true"></div>
+
+    <div id="ui">
+      <!-- Menu inicial -->
+      <section id="menu" class="screen hidden" aria-label="Menu inicial">
+        <div class="card">
+          <h1 class="logo">DESTRUCTOR</h1>
+          <p class="tagline">Construa. Defenda. Destrua.</p>
+          <div class="stack">
+            <button id="btn-play" class="btn primary">Jogar</button>
+            <button id="btn-howto" class="btn" aria-expanded="false" aria-controls="howto">Controles</button>
+          </div>
+          <div id="howto" class="howto hidden">
+            <ul>
+              <li><kbd>A</kbd>/<kbd>D</kbd> ou setas — mover · <kbd>Espaço</kbd> — pular (segure para ir mais alto)</li>
+              <li><kbd>J</kbd> — golpe · <kbd>K</kbd> — disparo</li>
+              <li><kbd>B</kbd> — menu de construção · <kbd>1</kbd>–<kbd>7</kbd> — escolher peça</li>
+              <li>Clique esquerdo — construir · clique direito — cancelar · <kbd>R</kbd> — demolição</li>
+              <li><kbd>S</kbd> + <kbd>Espaço</kbd> — descer de uma plataforma · <kbd>Enter</kbd> — começar a onda · <kbd>Esc</kbd> — pausar</li>
+            </ul>
+          </div>
+          <label class="slider">Volume <input id="menu-volume" type="range" min="0" max="1" step="0.05"></label>
+          <label class="check"><input id="menu-mute" type="checkbox"> Sem som</label>
+          <p id="menu-best" class="muted"></p>
+          <p id="menu-storage" class="muted warn hidden">O navegador bloqueou o salvamento: recorde e configurações valem só nesta sessão.</p>
+        </div>
+      </section>
+
+      <!-- HUD da partida -->
+      <div id="hud" class="hidden">
+        <div class="hud-top">
+          <div class="panel" id="hud-stats">
+            <div class="bar" role="progressbar" aria-label="Vida" aria-valuemin="0" id="hp-bar"><div id="hp-fill"></div><span id="hp-text"></span></div>
+            <div class="res"><span class="gem" aria-hidden="true"></span><span id="res-value" aria-label="Materiais"></span><span class="muted"> materiais</span></div>
+          </div>
+          <div class="panel" id="hud-wave">
+            <div id="wave-title"></div>
+            <div id="wave-sub" class="muted"></div>
+            <button id="btn-start-wave" class="btn small primary hidden">Começar agora (Enter)</button>
+          </div>
+          <button id="btn-pause" class="btn small" aria-label="Pausar">II</button>
+        </div>
+
+        <div id="banner" class="hidden"><h2 id="banner-title"></h2><p id="banner-sub"></p></div>
+        <div id="toast" class="hidden"></div>
+        <div id="build-tip" class="hidden"></div>
+
+        <div class="hud-bottom">
+          <div class="panel weapons">
+            <div class="weapon"><span>Lâmina <kbd>J</kbd></span><div class="cd"><div id="cd-melee"></div></div></div>
+            <div class="weapon"><span>Disparador <kbd>K</kbd></span><div class="cd"><div id="cd-shot"></div></div></div>
+          </div>
+          <div class="panel hidden" id="upgrades" aria-label="Melhorias"></div>
+          <button id="btn-build" class="btn small">Construir <kbd>B</kbd></button>
+        </div>
+
+        <div id="build-menu" class="panel hidden" aria-label="Menu de construção">
+          <div id="build-items"></div>
+          <div id="build-desc" class="muted"></div>
+        </div>
+      </div>
+
+      <!-- Pausa -->
+      <section id="pause" class="screen dim hidden" aria-label="Pausa">
+        <div class="card">
+          <h2>Pausa</h2>
+          <div class="stack">
+            <button id="btn-resume" class="btn primary">Continuar</button>
+            <button id="btn-restart" class="btn">Reiniciar partida</button>
+            <button id="btn-quit" class="btn">Menu inicial</button>
+          </div>
+          <label class="slider">Volume <input id="pause-volume" type="range" min="0" max="1" step="0.05"></label>
+          <label class="check"><input id="pause-mute" type="checkbox"> Sem som</label>
+        </div>
+      </section>
+
+      <!-- Fim de partida -->
+      <section id="gameover" class="screen dim hidden" aria-label="Fim de partida">
+        <div class="card">
+          <h2 id="over-title"></h2>
+          <p id="over-detail"></p>
+          <p id="over-stats" class="muted"></p>
+          <div class="stack">
+            <button id="btn-over-continue" class="btn primary hidden">Continuar sobrevivendo</button>
+            <button id="btn-over-restart" class="btn primary">Jogar de novo</button>
+            <button id="btn-over-menu" class="btn">Menu inicial</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="fatal" class="hidden" role="alert"></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

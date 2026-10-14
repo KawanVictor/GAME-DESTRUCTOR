@@ -4,7 +4,11 @@ Um jogo de ação e plataforma 2D em que você constrói o cenário enquanto lut
 
 Roda direto no navegador, para um jogador. Feito com Phaser 3, TypeScript e Vite.
 
-![O Titã, chefe da onda 5, chega com uma Vespa e um Cuspidor enquanto as torretas defendem a colina](docs/screenshots/chefe.png)
+**▶ [Jogar agora](https://game-destructor.vercel.app)**
+
+[![CI](https://github.com/KawanVictor/GAME-DESTRUCTOR/actions/workflows/ci.yml/badge.svg)](https://github.com/KawanVictor/GAME-DESTRUCTOR/actions/workflows/ci.yml)
+
+![O Titã, o chefe do jogo, chega com uma Vespa e um Cuspidor enquanto as torretas defendem a colina](docs/screenshots/chefe.png)
 
 | Escolha a arena | Monte suas defesas |
 |---|---|
@@ -16,7 +20,9 @@ Roda direto no navegador, para um jogador. Feito com Phaser 3, TypeScript e Vite
 
 ## Bora jogar
 
-Você só precisa do [Node.js](https://nodejs.org) (versão 20.19 ou mais nova).
+O jeito mais rápido é abrir **[game-destructor.vercel.app](https://game-destructor.vercel.app)**.
+
+Para rodar na sua máquina, você só precisa do [Node.js](https://nodejs.org) (versão 20.19 ou mais nova).
 
 ```bash
 npm install
@@ -113,6 +119,83 @@ npm run build
 ```
 
 Isso cria a pasta `dist/` com o jogo pronto. É só subir essa pasta em qualquer hospedagem de site estático, como Netlify, Vercel, Cloudflare Pages ou GitHub Pages. Para conferir antes, rode `npm run preview`.
+
+## Para desenvolvedores
+
+### Comandos
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run build` | Checagem de tipos e build de produção em `dist/` |
+| `npm run typecheck` | Só a checagem de tipos |
+| `npm test` | 74 testes unitários (Vitest) |
+| `npm run test:e2e` | 17 testes de navegador (Playwright, no Chrome) |
+| `BROWSERS=all npm run test:e2e` | Os mesmos testes em Chrome, Firefox e WebKit |
+| `npm run playthrough` | Um robô joga a partida inteira e relata cada onda |
+| `npm run screenshots` | Regenera as imagens deste README |
+
+A cada push, o GitHub Actions roda a checagem de tipos, os testes unitários, o build e os testes de navegador.
+
+### Como o código está organizado
+
+```
+src/game/
+  systems/    regras do jogo, sem Phaser: construção, recursos, ondas,
+              combate, salvamento (é o que os testes unitários cobrem)
+  data/       balanceamento em tabelas: peças, inimigos, ondas, armas
+  entities/   herói, inimigos e projéteis
+  world/      arenas, tilemap e torretas
+  scenes/     cenas do Phaser, que ligam as regras ao motor
+  ui/         HUD, menus, opções e controles de toque (HTML sobre o canvas)
+  art/        arte desenhada por código
+tests/        testes unitários
+e2e/          testes de navegador
+scripts/      robô de balanceamento e gerador de capturas
+```
+
+Algumas escolhas que valem contar:
+
+- **As regras não conhecem o motor.** Construção, ondas, dano e salvamento são TypeScript puro; as cenas só os conectam ao Phaser. Por isso dá para testá-los sem abrir um navegador.
+- **Balanceamento é dado, não código.** Um inimigo novo é uma linha em uma tabela.
+- **Reiniciar é criar uma partida nova.** Todo o estado nasce do zero, então nada vaza de uma partida para a outra.
+- **Os testes de navegador rodam sob a mesma política de segurança da produção** (Content-Security-Policy, definida em `vercel.json`), e falham se ela bloquear qualquer coisa.
+- **A API usada pelos testes não vai para produção.** Ela só existe em um build separado, e o CI confere que o pacote publicado não a contém.
+
+### Balanceamento com um robô
+
+As ondas foram ajustadas com `npm run playthrough`: um robô joga a partida inteira pelo teclado e mouse, em tempo real. Ele monta um forte simples, luta parado, coleta materiais, conserta e compra melhorias. Não desvia de nada, então funciona como piso: quem joga com atenção se sai melhor. Depois dos ajustes, o jogo também foi conferido à mão: as 10 ondas, as três arenas, todos os controles e todas as peças.
+
+Última partida dele na Colina, vencendo as 10 ondas:
+
+| Onda | Duração | Abates | Vida antes → depois |
+|---|---|---|---|
+| 1 | 30 s | 3 | 100 → 100 |
+| 2 | 39 s | 6 | 100 → 100 |
+| 3 | 41 s | 9 | 100 → 100 |
+| 4 | 55 s | 13 | 100 → 95 |
+| 5 (chefe) | 56 s | 10 | 95 → 68 |
+| 6 | 61 s | 20 | 68 → 56 |
+| 7 | 69 s | 25 | 96 → 41 |
+| 8 | 63 s | 28 | 106 → 45 |
+| 9 | 69 s | 33 | 110 → 109 |
+| 10 (chefe) | 60 s | 19 | 109 → 54 |
+
+O que essas partidas mudaram no jogo:
+
+- **O bug da Vespa.** Na primeira partida, o robô travou na onda 3: a Vespa ficava parada no portal e a onda nunca acabava. O arrasto da física, pensado para inimigos que andam, anulava a aceleração do voo. Nenhum teste tinha pegado isso.
+- **Cura sempre à venda.** Ela dependia de sorteio, e o robô chegou a entrar em uma onda com 6 de vida sem ter como se curar.
+- **Começo mais exigente.** As quatro primeiras ondas não causavam dano nenhum.
+- **Menos materiais por onda.** Sobrava tanto que o robô acumulou 655 sem ter onde gastar.
+- **Chefe menos punitivo.** Em uma versão intermediária, ele derrubava o robô com a vida cheia.
+
+### O que ainda falta
+
+- A dificuldade foi calibrada pelo robô e conferida em partidas manuais do autor; falta o retorno de outras pessoas jogando.
+- Vale e Planalto foram jogadas à mão, mas ainda não têm teste automatizado de partida completa.
+- O golpe de área do chefe ainda não tem teste automatizado.
+- Os controles de toque foram testados com eventos simulados, não em aparelhos.
+- No WebKit, 7 dos 17 testes ficam de fora: a versão que o Playwright oferece no Windows roda o jogo devagar demais para testes que dependem de tempo de resposta.
 
 ## Licença
 

@@ -12,6 +12,9 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 120_000,
   workers: 1,
+  // Na integração contínua as máquinas são lentas e sem placa de vídeo: os testes que
+  // dependem de tempo de resposta ganham até duas novas tentativas antes de falhar.
+  retries: env.CI ? 2 : 0,
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:4173',

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Um push novo cancela a execução anterior do mesmo branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, testes unitários e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Checagem de tipos
+        run: npm run typecheck
+      - name: Testes unitários (Vitest)
+        run: npm test
+      - name: Build de produção
+        run: npm run build
+      - name: A API de testes não pode ir para produção
+        run: |
+          if grep -rqE "__destructor|forceVictory|setPrepTimer" dist/assets; then
+            echo "A API de testes apareceu no pacote de produção." >&2
+            exit 1
+          fi
+
+  navegador:
+    name: Testes de navegador (Playwright, Chrome)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Instalar o Chrome
+        run: npx playwright install --with-deps chrome
+      - name: Testes de navegador (build de testes, com a política de segurança de produção)
+        run: npm run test:e2e
+      - name: Guardar capturas das falhas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-falhas
+          path: test-results/
+          retention-days: 7

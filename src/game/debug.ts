@@ -44,11 +44,12 @@ interface DebugRoot {
 }
 
 /**
- * Com `?test=1`, expõe window.__destructor para inspeção. Sem o parâmetro
- * nada é exposto.
+ * Fora do build de produção, `?test=1` expõe window.__destructor para
+ * inspeção. Em produção nada é exposto, com ou sem o parâmetro; a API é
+ * recebida como função para nem chegar a ser criada.
  */
-export function setDebugScene(scene: string, api: DebugApi | null): void {
+export function setDebugScene(scene: string, api: (() => DebugApi | null) | null): void {
   if (!TEST_MODE) return;
-  const root: DebugRoot = { scene, game: api };
+  const root: DebugRoot = { scene, game: api ? api() : null };
   (window as unknown as { __destructor: DebugRoot }).__destructor = root;
 }

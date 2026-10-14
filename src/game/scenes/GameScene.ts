@@ -191,7 +191,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.banner(level.name, 'Monte suas defesas antes da primeira onda.', 3600);
     audio.setMusic('calm');
 
-    setDebugScene('game', this.debugApi());
+    setDebugScene('game', () => this.debugApi());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
   }
 
@@ -784,7 +784,7 @@ export class GameScene extends Phaser.Scene {
     this.waves.continueEndless();
     this.scene.resume();
     this.hud.banner('Modo infinito', 'As ondas continuam ficando mais difíceis.', 2600);
-    setDebugScene('game', this.debugApi());
+    setDebugScene('game', () => this.debugApi());
   }
 
   private cleanup(): void {
@@ -803,7 +803,9 @@ export class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- testes
 
-  private debugApi(): DebugApi {
+  private debugApi(): DebugApi | null {
+    // No build de produção a constante é false e todo o resto do método é descartado do pacote.
+    if (!__TEST_API__) return null;
     return {
       snapshot: () => {
         const b = this.player.arcade;

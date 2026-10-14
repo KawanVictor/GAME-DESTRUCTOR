@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Os testes rodam contra o build de produção servido pelo `vite preview`.
+// Os testes rodam contra o build de testes (`--mode e2e`): igual ao de produção,
+// mais a API de inspeção, e servido com os mesmos cabeçalhos de segurança.
 // Padrão: só o Chrome já instalado (channel), sem baixar navegadores.
 // Com BROWSERS=all rodam também Firefox e WebKit (o motor do Safari);
 // antes, instale-os com `npx playwright install firefox webkit`.
@@ -27,7 +28,7 @@ export default defineConfig({
       : []),
   ],
   webServer: {
-    command: 'npm run build && npm run preview -- --port 4173 --strictPort',
+    command: 'npm run build:e2e && npm run preview:e2e -- --port 4173 --strictPort',
     url: 'http://localhost:4173',
     reuseExistingServer: true,
     timeout: 180_000,

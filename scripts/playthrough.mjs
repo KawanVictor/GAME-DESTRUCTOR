@@ -132,7 +132,7 @@ async function fight(page, home, deadline) {
   return s;
 }
 
-const server = spawn(`npm run build && npx vite preview --port ${PORT} --strictPort`, { shell: true, stdio: 'ignore' });
+const server = spawn(`npm run build:e2e && npx vite preview --mode e2e --port ${PORT} --strictPort`, { shell: true, stdio: 'ignore' });
 let browser;
 const report = [];
 try {

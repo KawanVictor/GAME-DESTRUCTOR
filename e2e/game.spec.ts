@@ -75,10 +75,14 @@ const WEBKIT_LENTO = 'depende de tempo de resposta: o WebKit headless no Windows
 
 test.describe('DESTRUCTOR', () => {
   // Nenhum teste pode terminar com erro de JavaScript na página.
+  // Idem para qualquer recurso bloqueado pela Content-Security-Policy.
   let pageErrors: string[] = [];
   test.beforeEach(({ page }) => {
     pageErrors = [];
     page.on('pageerror', (e) => pageErrors.push(e.message));
+    page.on('console', (m) => {
+      if (/content.security.policy|violates the following/i.test(m.text())) pageErrors.push(`CSP: ${m.text()}`);
+    });
   });
   test.afterEach(async ({ page }) => {
     await expect(page.locator('#fatal')).toBeHidden();
@@ -106,6 +110,10 @@ test.describe('DESTRUCTOR', () => {
     await expect(page.locator('#wave-sub')).toContainText('Preparação');
     await expect(page.locator('#fatal')).toBeHidden();
     expect(errors).toEqual([]);
+    // A política de segurança chega junto com a página.
+    const response = await page.request.get('/');
+    expect(response.headers()['content-security-policy']).toContain("script-src 'self'");
+    expect(response.headers()['x-content-type-options']).toBe('nosniff');
   });
 
   test('o personagem responde aos controles', async ({ page, browserName }) => {

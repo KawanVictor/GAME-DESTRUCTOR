@@ -165,7 +165,7 @@ Algumas escolhas que valem contar:
 
 ### Balanceamento com um robô
 
-As ondas foram ajustadas com `npm run playthrough`: um robô joga a partida inteira pelo teclado e mouse, em tempo real. Ele monta um forte simples, luta parado, coleta materiais, conserta e compra melhorias. Não desvia de nada, então funciona como piso: quem joga com atenção se sai melhor. Depois dos ajustes, o jogo também foi conferido à mão: as 10 ondas, as três arenas, todos os controles e todas as peças.
+As ondas foram ajustadas com `npm run playthrough`: um robô joga a partida inteira pelo teclado e mouse, em tempo real. Ele monta um forte simples, luta parado, coleta materiais, conserta e compra melhorias. Não desvia de nada, então funciona como piso: quem joga com atenção se sai melhor. Depois dos ajustes, o jogo também foi conferido à mão: partidas completas nas três arenas, o golpe de área do chefe, todos os controles e todas as peças.
 
 Última partida dele na Colina, vencendo as 10 ondas:
 
@@ -193,8 +193,7 @@ O que essas partidas mudaram no jogo:
 ### O que ainda falta
 
 - A dificuldade foi calibrada pelo robô e conferida em partidas manuais do autor; falta o retorno de outras pessoas jogando.
-- Vale e Planalto foram jogadas à mão, mas ainda não têm teste automatizado de partida completa.
-- O golpe de área do chefe ainda não tem teste automatizado.
+- Partidas completas nas três arenas e o golpe de área do chefe foram conferidos à mão; ainda não há teste automatizado para eles.
 - Os controles de toque foram testados com eventos simulados, não em aparelhos.
 - No WebKit, 7 dos 17 testes ficam de fora: a versão que o Playwright oferece no Windows roda o jogo devagar demais para testes que dependem de tempo de resposta.
 

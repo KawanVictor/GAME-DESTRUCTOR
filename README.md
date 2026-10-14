@@ -147,6 +147,7 @@ src/game/
   entities/   herói, inimigos e projéteis
   world/      arenas, tilemap e torretas
   scenes/     cenas do Phaser, que ligam as regras ao motor
+    game/     controladores da partida: entrada, combate, construção, coletáveis
   ui/         HUD, menus, opções e controles de toque (HTML sobre o canvas)
   art/        arte desenhada por código
 tests/        testes unitários

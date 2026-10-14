@@ -76,6 +76,29 @@ try {
   await page.waitForTimeout(420);
   await page.screenshot({ path: `${OUT}/combate.png` });
   await page.keyboard.up('k');
+
+  // 4. Chefe: o Titã chega com escolta voadora e um atirador
+  await api(page, 'spawnEnemy', 'boss', 7);
+  await api(page, 'spawnEnemy', 'flyer', -6);
+  await api(page, 'spawnEnemy', 'spitter', -8);
+  await page.waitForSelector('#boss:not(.hidden)');
+  await page.waitForTimeout(1500);
+  await page.keyboard.down('k');
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: `${OUT}/chefe.png` });
+  await page.keyboard.up('k');
+
+  // 5. Controles de toque, em tamanho de celular, na arena Vale
+  const phone = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true });
+  await phone.goto(URL);
+  await phone.click('#btn-menu-options');
+  await phone.selectOption('#opt-touch', 'on');
+  await phone.click('#btn-options-close');
+  await phone.click('[data-arena="vale"]');
+  await phone.click('#btn-play');
+  await phone.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game.snapshot().player.onFloor);
+  await phone.waitForSelector('#banner', { state: 'hidden' });
+  await phone.screenshot({ path: `${OUT}/toque.png` });
   console.log(`Capturas salvas em ${OUT}/`);
 } finally {
   if (browser) await browser.close();

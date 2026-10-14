@@ -34,7 +34,7 @@ export function defaultSave(): SaveData {
 export const ARENA_IDS: readonly ArenaId[] = ['colina', 'vale', 'planalto'];
 const TOUCH_MODES: readonly TouchMode[] = ['auto', 'on', 'off'];
 
-export function cloneBindings(b: Record<Action, string[]>): Record<Action, string[]> {
+function cloneBindings(b: Record<Action, string[]>): Record<Action, string[]> {
   const out = {} as Record<Action, string[]>;
   for (const k of Object.keys(b) as Action[]) out[k] = b[k].slice();
   return out;

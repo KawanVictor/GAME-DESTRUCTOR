@@ -71,6 +71,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     body.setDragX(900);
     if (this.def.behavior === 'flyer') {
       body.setAllowGravity(false);
+      body.setDragX(0);              // o arrasto dos terrestres anularia a aceleração suave do voo
       body.setOffset((this.def.frame.width - width) / 2, (this.def.frame.height - height) / 2);
       this.alerted = true;
     }

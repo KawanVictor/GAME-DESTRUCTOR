@@ -102,7 +102,16 @@ async function prepare(page, home) {
 
 async function fight(page, home, deadline) {
   let s = await snap(page);
+  const began = Date.now();
+  let reported = false;
   while (s && s.outcome === 'playing' && s.wave.phase === 'fighting' && Date.now() < deadline) {
+    // Onda demorando demais: registra o que sobrou em campo, para diagnosticar travamentos.
+    if (!reported && Date.now() - began > 100_000) {
+      reported = true;
+      console.log('ONDA LENTA', JSON.stringify({ onda: s.wave.number, restantes: s.wave.remaining, heroi: [Math.round(s.player.x), Math.round(s.player.y)],
+        inimigos: s.enemies.map((e) => [e.type, Math.round(e.x), Math.round(e.y), Math.round(e.hp), e.state]) }));
+      await page.screenshot({ path: 'test-results/onda-lenta.png' });
+    }
     const foes = s.enemies.filter((e) => e.state !== 'dead');
     const near = foes.sort((a, b) => Math.abs(a.x - s.player.x) - Math.abs(b.x - s.player.x))[0];
     if (near) {
@@ -169,6 +178,8 @@ try {
       break;
     }
   }
+  // A tela final aparece cerca de 1 s depois do fim da partida.
+  await page.waitForSelector('#gameover:not(.hidden)', { timeout: 4000 }).catch(() => {});
   if (await page.locator('#gameover:not(.hidden)').count()) outcome = (await page.locator('#over-title').textContent()) ?? outcome;
   console.log(`RESULTADO (${arena}): ${outcome} — ${report.filter((r) => r.fim === 'playing' || r.fim === 'victory').length} ondas vencidas`);
   if (errors.length) console.log('ERROS DE PÁGINA:', errors);

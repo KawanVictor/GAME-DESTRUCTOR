@@ -46,6 +46,8 @@ export const WAVES = {
   /** Pausa curta mostrando "onda concluída" antes do preparo seguinte. */
   completedPause: 2.5,
   maxActiveEnemies: 18,
+  /** Vida recuperada ao concluir uma onda. */
+  healOnClear: 15,
 } as const;
 
 export const START_RESOURCES = 150;
@@ -87,14 +89,14 @@ export const REPAIR = {
 
 /** Golpe de área do chefe ao aterrissar de um salto. */
 export const BOSS_SLAM = {
-  interval: 4.5,
-  windup: 0.6,
+  interval: 5.5,
+  windup: 0.7,
   /** Raio do dano ao herói, em tiles. */
   radius: 3,
-  damage: 28,
+  damage: 22,
   /** Raio e dano a blocos. */
   blockRadius: 2,
-  blockDamage: 70,
+  blockDamage: 55,
   /** O chefe aparece a cada tantas ondas. */
   every: 5,
 } as const;
@@ -112,5 +114,5 @@ export const UPGRADES = {
 
 export type UpgradeId = keyof typeof UPGRADES;
 export const UPGRADE_IDS = Object.keys(UPGRADES) as UpgradeId[];
-/** Quantas melhorias são oferecidas por preparo. */
+/** Quantas melhorias sorteadas são oferecidas por preparo (a cura está sempre à venda, além delas). */
 export const UPGRADE_OFFERS = 3;

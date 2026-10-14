@@ -587,9 +587,10 @@ export class GameScene extends Phaser.Scene {
 
   private onWaveComplete(def: WaveDef): void {
     this.match.resources.add(def.reward);
+    const healed = Math.round(this.match.playerHealth.heal(WAVES.healOnClear));
     rollOffers(this.match);
     audio.play('waveClear');
-    this.hud.banner(`Onda ${def.number} concluída`, `+${def.reward} materiais`, 2600);
+    this.hud.banner(`Onda ${def.number} concluída`, `+${def.reward} materiais${healed > 0 ? ` · +${healed} de vida` : ''}`, 2600);
     if (def.number > save.data.bestWave) { save.data.bestWave = def.number; save.save(); }
   }
 

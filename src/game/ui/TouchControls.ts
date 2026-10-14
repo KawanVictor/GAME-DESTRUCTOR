@@ -3,7 +3,7 @@ import type { Action } from '../types/game';
 import { el, show } from './dom';
 
 /** O jogo deve mostrar os controles de toque agora? */
-export function touchWanted(): boolean {
+function touchWanted(): boolean {
   const mode = save.data.settings.touch;
   if (mode !== 'auto') return mode === 'on';
   return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;

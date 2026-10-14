@@ -77,15 +77,19 @@ describe('reparo', () => {
 });
 
 describe('melhorias', () => {
-  it('cada preparo oferece algumas melhorias distintas, sorteadas', () => {
+  it('cada preparo oferece a cura mais algumas melhorias distintas, sorteadas', () => {
     const m = createMatch();
-    expect(m.offers).toHaveLength(UPGRADE_OFFERS);
-    expect(new Set(m.offers).size).toBe(UPGRADE_OFFERS);
+    expect(m.offers).toHaveLength(UPGRADE_OFFERS + 1);
+    expect(new Set(m.offers).size).toBe(UPGRADE_OFFERS + 1);
     const seen = new Set<string>();
-    for (let i = 0; i < 60; i++) { rollOffers(m); m.offers.forEach((o) => seen.add(o)); }
+    for (let i = 0; i < 60; i++) {
+      rollOffers(m);
+      expect(m.offers[0]).toBe('heal');                  // a cura nunca depende de sorte
+      m.offers.forEach((o) => seen.add(o));
+    }
     expect(seen.size).toBe(UPGRADE_IDS.length);
     rollOffers(m, () => 0);
-    expect(m.offers).toEqual(UPGRADE_IDS.slice(0, UPGRADE_OFFERS));
+    expect(m.offers).toEqual(['heal', ...UPGRADE_IDS.filter((id) => id !== 'heal').slice(0, UPGRADE_OFFERS)]);
   });
 
   it('compra desconta materiais, aplica o efeito e sai da oferta', () => {

@@ -4,13 +4,13 @@ import type { EnemyDef, EnemyType, WaveDef } from '../types/game';
 export const ENEMY_DEFS: Record<EnemyType, EnemyDef> = {
   // Rastejador: patrulha e persegue.
   basic: {
-    type: 'basic', behavior: 'ground', maxHp: 40, speed: 72, damage: 10, attackInterval: 0.9, blockDamage: 9,
+    type: 'basic', behavior: 'ground', maxHp: 40, speed: 72, damage: 10, attackInterval: 0.9, blockDamage: 13,
     jumpTiles: 1, detectTiles: 9, reward: 8, knockback: 1,
     body: { width: 26, height: 28 }, frame: { width: 44, height: 40 },
   },
   // Corredor: rápido, frágil, salta obstáculos.
   fast: {
-    type: 'fast', behavior: 'ground', maxHp: 22, speed: 158, damage: 6, attackInterval: 0.6, blockDamage: 4,
+    type: 'fast', behavior: 'ground', maxHp: 24, speed: 158, damage: 8, attackInterval: 0.6, blockDamage: 4,
     jumpTiles: 3, detectTiles: 16, reward: 6, knockback: 1.2,
     body: { width: 26, height: 20 }, frame: { width: 48, height: 32 },
   },
@@ -35,7 +35,7 @@ export const ENEMY_DEFS: Record<EnemyType, EnemyDef> = {
   },
   // Titã: chefe. Arrebenta estruturas e salta sobre o herói com um golpe de área.
   boss: {
-    type: 'boss', behavior: 'boss', maxHp: 520, speed: 46, damage: 30, attackInterval: 1.4, blockDamage: 80,
+    type: 'boss', behavior: 'boss', maxHp: 520, speed: 46, damage: 20, attackInterval: 1.4, blockDamage: 60,
     jumpTiles: 2, detectTiles: 99, reward: 90, knockback: 0,
     body: { width: 60, height: 76 }, frame: { width: 100, height: 92 },
   },
@@ -60,8 +60,8 @@ export function composeWave(n: number): WaveDef {
   // Depois da estreia, cada tipo aparece ao menos uma vez por onda.
   const amount = (type: Escort, base: number): number => (n >= FIRST_WAVE[type] ? Math.max(1, Math.floor(base * escort)) : 0);
   const left: Record<Escort, number> = {
-    basic: amount('basic', 2 + n),
-    fast: amount('fast', n * 0.8),
+    basic: amount('basic', 1.6 + n * 1.4),
+    fast: amount('fast', n),
     flyer: amount('flyer', (n - 1) / 2),
     tank: amount('tank', (n - 2) / 2),
     spitter: amount('spitter', (n - 3) / 2),
@@ -82,9 +82,9 @@ export function composeWave(n: number): WaveDef {
     number: n,
     enemies,
     spawnInterval: Math.max(0.6, 1.8 - n * 0.1),
-    reward: 30 + n * 10 + (boss ? 60 : 0),
+    reward: 25 + n * 6 + (boss ? 40 : 0),
     boss,
     // A vida dos inimigos sobe devagar a cada onda.
-    hpScale: 1 + (n - 1) * 0.04,
+    hpScale: 1 + (n - 1) * 0.05,
   };
 }

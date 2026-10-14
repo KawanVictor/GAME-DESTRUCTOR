@@ -28,7 +28,7 @@ export function keyLabel(name: string): string {
 }
 
 /** Tecla principal de uma ação, pronta para exibir. */
-export function actionKey(action: Action): string {
+function actionKey(action: Action): string {
   return keyLabel(save.data.settings.bindings[action][0] ?? '?');
 }
 

@@ -52,11 +52,14 @@ export function createMatch(arena: ArenaId = 'colina'): MatchState {
   return match;
 }
 
-/** Sorteia as melhorias do próximo preparo (sem repetição). */
+/**
+ * Define as melhorias do próximo preparo: a cura, sempre, mais algumas
+ * sorteadas entre as demais (sem repetição).
+ */
 export function rollOffers(match: MatchState, random: () => number = Math.random): void {
-  const pool = UPGRADE_IDS.slice();
-  const picks: UpgradeId[] = [];
-  while (picks.length < UPGRADE_OFFERS && pool.length) {
+  const pool = UPGRADE_IDS.filter((id) => id !== 'heal');
+  const picks: UpgradeId[] = ['heal'];
+  while (picks.length < UPGRADE_OFFERS + 1 && pool.length) {
     picks.push(pool.splice(Math.floor(random() * pool.length), 1)[0]);
   }
   match.offers = picks;

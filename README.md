@@ -114,10 +114,6 @@ npm run build
 
 Isso cria a pasta `dist/` com o jogo pronto. É só subir essa pasta em qualquer hospedagem de site estático, como Netlify, Vercel, Cloudflare Pages ou GitHub Pages. Para conferir antes, rode `npm run preview`.
 
-## Quer trocar a arte ou os sons?
-
-Tudo o que você vê e ouve é gerado por código, mas dá para usar seus próprios arquivos. Coloque-os em `public/assets/` e registre em `public/assets/manifest.json`. O passo a passo está em [public/assets/README.md](public/assets/README.md).
-
 ## Licença
 
 [MIT](LICENSE) © 2026 Kawan Victor Cavalcante

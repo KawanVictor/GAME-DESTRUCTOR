@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { inject } from '@vercel/analytics';
 import './styles/main.css';
 import { GRAVITY, VIEW_HEIGHT, VIEW_WIDTH } from './game/config';
 import { BootScene } from './game/scenes/BootScene';
@@ -7,6 +8,9 @@ import { GameScene } from './game/scenes/GameScene';
 import { MenuScene } from './game/scenes/MenuScene';
 import { PreloadScene } from './game/scenes/PreloadScene';
 import { audio } from './game/services';
+
+// Initialize Vercel Web Analytics
+inject();
 
 function fatal(message: string): void {
   const box = document.getElementById('fatal');

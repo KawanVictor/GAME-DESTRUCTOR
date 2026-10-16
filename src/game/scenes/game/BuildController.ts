@@ -4,7 +4,7 @@ import { blockById, BUILDABLE } from '../../data/blocks';
 import type { Enemy } from '../../entities/Enemy';
 import { audio } from '../../services';
 import { FAILURE_TEXT } from '../../systems/BuildingSystem';
-import type { BuildCheck, BuildContext, BuildEvent } from '../../types/game';
+import type { BlockId, BuildCheck, BuildContext, BuildEvent } from '../../types/game';
 import { BuildMenu, type BuildTool } from '../../ui/BuildMenu';
 import type { TileView } from '../../world/TileView';
 import type { TurretManager } from '../../world/TurretManager';
@@ -16,7 +16,15 @@ import type { PickupController } from './PickupController';
 const BLOCK_TINT: Record<string, number> = {
   crate: 0xd9a066, wood_platform: 0xd9a066, stone_block: 0xa3acc2, defensive_wall: 0x5d79b8,
   explosive_block: 0xf0575c, jump_pad: 0x67e8f9, spike_trap: 0xc9d2e6, turret: 0xffb347,
+  ice_trap: 0x9fe7ff, cannon: 0xff7a3d, core: 0x67e8f9, bridge: 0xb9824a,
 };
+
+export interface BuildEvents {
+  /** Uma peça do jogador foi construída. */
+  onPiecePlaced?(id: BlockId): void;
+  /** O núcleo foi destruído. */
+  onCoreDestroyed?(): void;
+}
 
 /**
  * Construção durante a partida: a ferramenta escolhida, a prévia sob o
@@ -35,6 +43,7 @@ export class BuildController {
     private readonly turrets: TurretManager,
     private readonly combat: CombatController,
     private readonly pickups: PickupController,
+    private readonly events: BuildEvents = {},
   ) {
     this.menu = new BuildMenu((tool) => this.pickTool(tool));
     this.ghost = ctx.scene.add.image(0, 0, 'tiles', 0).setOrigin(0).setAlpha(0.6).setDepth(30).setVisible(false);
@@ -164,8 +173,9 @@ export class BuildController {
     switch (e.type) {
       case 'placed':
         this.view.sync(e.x, e.y);
-        if (e.block.trap === 'turret') this.turrets.add(e.x, e.y);
+        if (e.block.trap === 'turret' || e.block.trap === 'cannon') this.turrets.add(e.x, e.y, e.block.trap);
         match.blocksPlaced++;
+        this.events.onPiecePlaced?.(e.block.id);
         fx.pop(cx, cy, e.block.index);
         fx.burst(cx, cy + TILE / 2, 0xcfd6ee, 6);
         audio.play('place');
@@ -192,6 +202,7 @@ export class BuildController {
         fx.burst(cx, cy, tint, 14);
         audio.play('break');
         if (e.block.drops) for (let i = 0; i < 3; i++) this.pickups.drop(cx, cy, Math.round(e.block.drops / 3));
+        if (e.block.core) this.events.onCoreDestroyed?.();
         break;
       case 'explosion':
         this.combat.explode(e.x, e.y, e.explosive);

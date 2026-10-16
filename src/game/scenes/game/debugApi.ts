@@ -1,8 +1,8 @@
 import { TILE, VIEW_HEIGHT, VIEW_WIDTH, WAVES } from '../../config';
-import type { DebugApi } from '../../debug';
+import type { DebugApi, DebugSnapshot } from '../../debug';
 import type { Enemy } from '../../entities/Enemy';
 import type { WaveSystem } from '../../systems/WaveSystem';
-import type { EnemyType } from '../../types/game';
+import type { EnemyType, ModifierId } from '../../types/game';
 import type { TurretManager } from '../../world/TurretManager';
 import type { CombatController } from './CombatController';
 import type { GameContext } from './GameContext';
@@ -16,6 +16,9 @@ export interface DebugDeps {
   turrets: TurretManager;
   spawnEnemy(type: EnemyType, x: number, y: number): Enemy;
   finishAsVictory(): void;
+  forceModifier(id: ModifierId | null): void;
+  /** Estado que só a cena conhece (modo, regra da onda, núcleo, escuridão...). */
+  extra(): Pick<DebugSnapshot, 'mode' | 'modifier' | 'core' | 'darkness' | 'meteors' | 'tutorial'>;
 }
 
 /**
@@ -41,11 +44,14 @@ export function createDebugApi(d: DebugDeps): DebugApi | null {
         kills: match.kills,
         offers: match.offers.slice(),
         wave: { number: waves.number, completed: waves.completed, phase: waves.phase, remaining: waves.remaining, timer: waves.timer },
-        enemies: (ctx.enemies.getChildren() as Enemy[]).map((e) => ({ id: e.id, type: e.def.type, x: e.x, y: e.y, hp: e.health.hp, state: e.ai })),
+        enemies: (ctx.enemies.getChildren() as Enemy[]).map((e) => ({
+          id: e.id, type: e.def.type, x: e.x, y: e.y, hp: e.health.hp, maxHp: e.health.max, state: e.ai, slowed: e.slowed,
+        })),
         ownedBlocks: match.building.countOwned(),
         turrets: d.turrets.count,
         bullets: d.combat.activeProjectiles,
         pickups: d.pickups.count,
+        ...d.extra(),
       };
     },
     cell: (tx, ty) => match.building.get(tx, ty).id,
@@ -73,6 +79,7 @@ export function createDebugApi(d: DebugDeps): DebugApi | null {
       waves.phase = 'victory';
       d.finishAsVictory();
     },
+    forceModifier: (id) => d.forceModifier(id as ModifierId | null),
     setResources: (amount) => {
       const r = match.resources;
       if (amount > r.value) r.add(amount - r.value); else r.spend(r.value - amount);

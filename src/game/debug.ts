@@ -12,11 +12,22 @@ export interface DebugSnapshot {
   resources: number;
   kills: number;
   wave: { number: number; completed: number; phase: string; remaining: number; timer: number };
-  enemies: Array<{ id: number; type: string; x: number; y: number; hp: number; state: string }>;
+  enemies: Array<{ id: number; type: string; x: number; y: number; hp: number; maxHp: number; state: string; slowed: boolean }>;
   ownedBlocks: number;
   turrets: number;
   bullets: number;
   pickups: number;
+  mode: string;
+  /** Regra especial da onda atual (ou null). */
+  modifier: string | null;
+  /** Fração de vida do núcleo, ou null sem núcleo. */
+  core: number | null;
+  /** Intensidade da escuridão (0 a 1). */
+  darkness: number;
+  /** Meteoros caindo agora. */
+  meteors: number;
+  /** Passo do tutorial (-1 = sem tutorial). */
+  tutorial: number;
 }
 
 export interface DebugApi {
@@ -36,6 +47,8 @@ export interface DebugApi {
   setPrepTimer(seconds: number): void;
   /** Encerra a partida como vitória (para testar a tela final e o modo infinito). */
   forceVictory(): void;
+  /** Faz a próxima onda vir com esta regra especial (ou sem nenhuma, com null). */
+  forceModifier(id: string | null): void;
 }
 
 interface DebugRoot {

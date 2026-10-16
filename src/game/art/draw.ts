@@ -151,6 +151,44 @@ export function drawTile(c: Ctx, frame: number): void {
       c.fillStyle = '#ffb347'; c.fillRect(6, 22, T - 12, 3);
       break;
     }
+    case 'ice_trap': {
+      c.fillStyle = '#3a4263'; rr(c, 0, T - 6, T, 6, 2); c.fill();
+      c.save(); c.shadowColor = '#9fe7ff'; c.shadowBlur = 6;
+      rr(c, 1, T - 11, T - 2, 6, 3); c.fillStyle = grad(c, T - 11, T - 5, '#e6fbff', '#7fd4f0'); c.fill(); c.restore();
+      for (const [x, h] of [[5, 9], [12, 14], [20, 11], [27, 8]]) {
+        tri(c, x - 3, T - 10, x + 3, T - 10, x, T - 10 - h, '#bff3ff');
+        tri(c, x, T - 10, x + 3, T - 10, x, T - 10 - h, '#7fd4f0');
+      }
+      break;
+    }
+    case 'cannon': {
+      rr(c, 1, 14, T - 2, T - 14, 4); c.fillStyle = grad(c, 14, T, '#6b5a4f', '#3a2e28'); c.fill();
+      c.strokeStyle = '#1b1410'; c.lineWidth = 2; c.stroke();
+      c.fillStyle = '#1b1410'; c.fillRect(10, 6, 12, 10);
+      c.save(); c.shadowColor = '#ff7a3d'; c.shadowBlur = 8;
+      c.fillStyle = '#ff7a3d'; c.fillRect(5, 23, T - 10, 3); c.restore();
+      c.fillStyle = '#c9d2e6'; for (const x of [6, T - 9]) { c.beginPath(); c.arc(x + 1.5, 18, 1.6, 0, 7); c.fill(); }
+      break;
+    }
+    case 'core': {
+      c.fillStyle = '#232843'; rr(c, 2, T - 7, T - 4, 7, 2); c.fill();
+      c.save(); c.shadowColor = '#67e8f9'; c.shadowBlur = 12;
+      c.fillStyle = grad(c, 1, T - 7, '#e6fbff', '#3a8fe0');
+      c.beginPath(); c.moveTo(T / 2, 1); c.lineTo(T - 6, 11); c.lineTo(T / 2, T - 7); c.lineTo(6, 11); c.closePath(); c.fill();
+      c.restore();
+      c.fillStyle = 'rgba(255,255,255,0.6)';
+      c.beginPath(); c.moveTo(T / 2, 3); c.lineTo(T / 2 + 4, 10); c.lineTo(T / 2, 13); c.closePath(); c.fill();
+      break;
+    }
+    case 'bridge': {
+      c.fillStyle = grad(c, 0, 12, '#d29a5e', '#8a5a2e'); c.fillRect(0, 0, T, 12);
+      c.fillStyle = '#5e3a1a'; for (const x of [0, 10, 21]) c.fillRect(x, 0, 1.5, 12);
+      c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(0, 1, T, 1.5);
+      c.strokeStyle = '#5e3a1a'; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, 12); c.lineTo(T / 2, 22); c.lineTo(T, 12); c.stroke();
+      c.fillStyle = '#c9d2e6'; c.beginPath(); c.arc(5, 6, 1.4, 0, 7); c.arc(T - 5, 6, 1.4, 0, 7); c.fill();
+      break;
+    }
     default:
       break;
   }
@@ -293,6 +331,38 @@ export function drawEnemy(c: Ctx, type: EnemyType, i: number): void {
     if (attack) { c.save(); c.shadowColor = '#c8ff7a'; c.shadowBlur = 6; c.fillStyle = '#c8ff7a'; c.beginPath(); c.arc(44, by - 3, 2, 0, 7); c.fill(); c.restore(); }
     c.fillStyle = '#fff'; c.beginPath(); c.arc(26, by - 7, 4, 0, 7); c.fill();
     c.fillStyle = '#123a28'; c.beginPath(); c.arc(27.5, by - 7, 2, 0, 7); c.fill();
+  } else if (type === 'saboteur') {
+    // Sabotador: baixinho encapuzado, com uma picareta para desmontar defesas.
+    const by = 22 - Math.abs(Math.cos(t)) * 1.5;
+    limb(c, 17, by + 8, 8, sw * 0.8, 4, '#3b1d14'); limb(c, 25, by + 8, 8, -sw * 0.8, 4, '#3b1d14');
+    const swingA = attack ? 2.6 : 0.9 + sw * 0.25;
+    const [hx, hy] = limb(c, 27, by - 2, 9, swingA, 3, '#7a3b22');
+    limb(c, hx, hy, 6, swingA - 1.2, 2.5, '#c9d2e6');
+    limb(c, hx, hy, 6, swingA + 1.2, 2.5, '#c9d2e6');
+    c.fillStyle = grad(c, by - 12, by + 10, '#c0532f', '#6e2a17');
+    c.beginPath(); c.ellipse(21, by, 10, 11, 0, 0, 7); c.fill();
+    tri(c, 12, by - 6, 20, by - 20, 30, by - 6, '#8a3a20');
+    c.fillStyle = '#1a0b07'; c.beginPath(); c.ellipse(24, by - 5, 6, 4.5, 0, 0, 7); c.fill();
+    c.save(); c.shadowColor = '#ffd166'; c.shadowBlur = 5; c.fillStyle = '#ffd166';
+    c.beginPath(); c.arc(23, by - 5, 1.6, 0, 7); c.arc(27, by - 5, 1.6, 0, 7); c.fill(); c.restore();
+    c.fillStyle = '#3b1d14'; rr(c, 13, by + 2, 16, 4, 2); c.fill();
+  } else if (type === 'healer') {
+    // Curandeiro: manto comprido e um cajado com uma esfera verde.
+    const by = 30 + Math.sin(t) * 1;
+    c.fillStyle = grad(c, by - 18, by + 16, '#5fd39a', '#1f5a44');
+    c.beginPath(); c.moveTo(14, by + 16); c.lineTo(17, by - 12); c.lineTo(27, by - 12); c.lineTo(31, by + 16); c.closePath(); c.fill();
+    c.fillStyle = '#2a7a5a'; rr(c, 15, by + 12, 16, 4, 2); c.fill();
+    c.fillStyle = '#d9f7e8'; c.beginPath(); c.arc(22, by - 16, 6.5, 0, 7); c.fill();
+    c.fillStyle = '#1f5a44'; c.beginPath(); c.arc(22, by - 18, 7, Math.PI, 0); c.fill();
+    c.fillStyle = '#123a28'; c.beginPath(); c.arc(25, by - 15, 1.6, 0, 7); c.fill();
+    const lift = attack ? -6 : 0;
+    c.strokeStyle = '#8a6a3a'; c.lineWidth = 2.5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(34, by + 16); c.lineTo(34, by - 22 + lift); c.stroke();
+    limb(c, 26, by - 6, 8, 1.9, 3, '#2f8a64');
+    c.save(); c.shadowColor = '#7dffc0'; c.shadowBlur = attack ? 14 : 8; c.fillStyle = attack ? '#ffffff' : '#7dffc0';
+    c.beginPath(); c.arc(34, by - 25 + lift, attack ? 5 : 4, 0, 7); c.fill(); c.restore();
+    c.strokeStyle = '#d9f7e8'; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(19, by - 2); c.lineTo(25, by - 2); c.moveTo(22, by - 5); c.lineTo(22, by + 1); c.stroke();
   } else {
     // Titã (chefe): couraça, chifres e um núcleo brilhante no peito.
     const by = 46 - Math.abs(Math.cos(t)) * 1.6;
@@ -356,6 +426,34 @@ export function drawTurretHead(c: Ctx): void {      // 34×16, apontando para a 
   c.fillStyle = '#ffb347'; c.fillRect(29, 6, 4, 4);
   c.fillStyle = grad(c, 0, 16, '#7f8aa8', '#3d4566'); c.beginPath(); c.arc(9, 8, 8, 0, 7); c.fill();
   c.fillStyle = '#ffb347'; c.beginPath(); c.arc(9, 8, 3, 0, 7); c.fill();
+}
+
+export function drawCannonHead(c: Ctx): void {      // 34×18, apontando para a direita
+  rr(c, 10, 4, 23, 10, 3); c.fillStyle = grad(c, 4, 14, '#6b6f80', '#2d3142'); c.fill();
+  c.fillStyle = '#1b1f33'; rr(c, 29, 3, 5, 12, 2); c.fill();
+  c.fillStyle = grad(c, 0, 18, '#7a6a5e', '#3a2e28'); c.beginPath(); c.arc(9, 9, 9, 0, 7); c.fill();
+  c.fillStyle = '#ff7a3d'; c.beginPath(); c.arc(9, 9, 3.5, 0, 7); c.fill();
+}
+
+export function drawCannonShell(c: Ctx): void {     // 14×14
+  c.save(); c.shadowColor = '#ff7a3d'; c.shadowBlur = 8;
+  c.fillStyle = '#2d3142'; c.beginPath(); c.arc(7, 7, 5, 0, 7); c.fill(); c.restore();
+  c.fillStyle = '#ffb347'; c.beginPath(); c.arc(5.5, 5.5, 1.8, 0, 7); c.fill();
+}
+
+export function drawMeteor(c: Ctx): void {          // 28×28
+  const g = c.createRadialGradient(18, 18, 2, 14, 14, 14);
+  g.addColorStop(0, 'rgba(255,240,180,1)'); g.addColorStop(0.45, 'rgba(255,122,61,0.9)'); g.addColorStop(1, 'rgba(255,80,40,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 28, 28);
+  c.fillStyle = '#4a3a33'; c.beginPath(); c.arc(17, 17, 6.5, 0, 7); c.fill();
+  c.fillStyle = '#ff7a3d'; c.beginPath(); c.arc(15, 15, 2, 0, 7); c.fill();
+}
+
+/** Luz suave para recortar a escuridão: opaca no centro, transparente na borda. */
+export function drawLight(c: Ctx): void {           // 256×256
+  const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, 'rgba(255,255,255,0.85)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 256, 256);
 }
 
 export function drawPortal(c: Ctx): void {          // 56×80

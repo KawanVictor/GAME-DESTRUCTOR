@@ -33,6 +33,8 @@ try {
   await waitForServer();
   browser = await chromium.launch({ channel: 'chrome' });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  // Sem o tutorial da primeira partida (ele cobriria a tela).
+  await page.addInitScript(() => { if (!localStorage.getItem('destructor.save.v1')) localStorage.setItem('destructor.save.v1', JSON.stringify({ version: 1, tutorialDone: true })); });
 
   // 1. Menu inicial
   await page.goto(URL);
@@ -90,6 +92,8 @@ try {
 
   // 5. Controles de toque, em tamanho de celular, na arena Vale
   const phone = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true });
+  // Sem o tutorial da primeira partida (ele cobriria a tela).
+  await phone.addInitScript(() => { if (!localStorage.getItem('destructor.save.v1')) localStorage.setItem('destructor.save.v1', JSON.stringify({ version: 1, tutorialDone: true })); });
   await phone.goto(URL);
   await phone.click('#btn-menu-options');
   await phone.selectOption('#opt-touch', 'on');
@@ -99,6 +103,44 @@ try {
   await phone.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game.snapshot().player.onFloor);
   await phone.waitForSelector('#banner', { state: 'hidden' });
   await phone.screenshot({ path: `${OUT}/toque.png` });
+
+  // 6 e 7. Arenas novas, abertas já com o modo e a arena gravados no salvamento.
+  const arenaPage = async (settings) => {
+    const p = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    await p.addInitScript((s) => localStorage.setItem('destructor.save.v1', JSON.stringify({ version: 1, tutorialDone: true, settings: s })), settings);
+    await p.goto(URL);
+    await p.click('#btn-play');
+    await p.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game.snapshot().player.onFloor);
+    await api(p, 'setPrepTimer', 300);
+    return p;
+  };
+
+  // Noite: só se enxerga perto do herói, das defesas e dos portais; um Curandeiro e um Sabotador chegam.
+  const night = await arenaPage({ arena: 'noite', mode: 'classic' });
+  const n = (await api(night, 'snapshot')).player;
+  await api(night, 'setResources', 400);
+  await night.keyboard.press('b');
+  await night.keyboard.press('7');
+  await clickCell(night, n.tx + 2, n.ty);
+  await night.keyboard.press('8');
+  await clickCell(night, n.tx + 4, n.ty);
+  await night.keyboard.press('Escape');
+  await api(night, 'spawnEnemy', 'healer', 7);
+  await api(night, 'spawnEnemy', 'saboteur', 6);
+  await api(night, 'spawnEnemy', 'basic', -5);
+  await night.waitForSelector('#banner', { state: 'hidden' });
+  await night.screenshot({ path: `${OUT}/noite.png` });
+
+  // Ponte, no modo Defender o núcleo: tábuas quebradas e inimigos caindo no abismo.
+  const bridge = await arenaPage({ arena: 'ponte', mode: 'core' });
+  const b = (await api(bridge, 'snapshot')).player;
+  for (const dx of [3, 4]) await api(bridge, 'damageCell', b.tx + dx, b.ty + 1, 999);
+  await api(bridge, 'spawnEnemy', 'basic', 6);
+  await api(bridge, 'spawnEnemy', 'fast', 8);
+  await api(bridge, 'spawnEnemy', 'flyer', 5);
+  await bridge.waitForSelector('#banner', { state: 'hidden' });
+  await bridge.waitForFunction(() => window.__destructor.game.snapshot().kills >= 1, null, { timeout: 15_000 }).catch(() => {});
+  await bridge.screenshot({ path: `${OUT}/ponte.png` });
   console.log(`Capturas salvas em ${OUT}/`);
 } finally {
   if (browser) await browser.close();

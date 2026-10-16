@@ -21,6 +21,12 @@ export interface HudView {
   offers: readonly UpgradeId[];
   /** Chefe em campo: nome e fração de vida. */
   boss: { name: string; ratio: number } | null;
+  /** Fração de vida do núcleo (modo Defender o núcleo), ou null. */
+  core: number | null;
+  /** Nome da regra especial da onda em combate, ou null. */
+  modifier: string | null;
+  /** Sandbox: inimigos em campo (null fora do sandbox). */
+  sandbox: number | null;
 }
 
 export interface HudCallbacks {
@@ -48,6 +54,7 @@ export class HUD {
     show(el('toast'), false);
     show(el('build-tip'), false);
     show(el('boss'), false);
+    show(el('core'), false);
     applyKeyLabels(el('hud'));
   }
 
@@ -84,15 +91,17 @@ export class HUD {
       el('hp-bar').setAttribute('aria-valuemax', String(v.maxHp));
     });
     this.set('res', String(v.resources), (t) => { el('res-value').textContent = t; });
-    this.set('wave', `Onda ${v.wave}${v.endless ? ' (infinito)' : ` de ${v.totalWaves}`}`, (t) => { el('wave-title').textContent = t; });
+    const title = v.sandbox !== null ? 'Sandbox' : `Onda ${v.wave}${v.endless ? ' (infinito)' : ` de ${v.totalWaves}`}`;
+    this.set('wave', title, (t) => { el('wave-title').textContent = t; });
 
     let sub = '';
-    if (v.phase === 'preparing') sub = `Preparação — começa em ${Math.max(0, Math.ceil(v.timer))} s`;
-    else if (v.phase === 'fighting') sub = `Inimigos restantes: ${v.remaining}`;
+    if (v.sandbox !== null) sub = `Inimigos em campo: ${v.sandbox}`;
+    else if (v.phase === 'preparing') sub = `Preparação — começa em ${Math.max(0, Math.ceil(v.timer))} s`;
+    else if (v.phase === 'fighting') sub = `${v.modifier ? `${v.modifier} · ` : ''}Inimigos restantes: ${v.remaining}`;
     else if (v.phase === 'completed') sub = 'Onda concluída!';
     else sub = 'Todas as ondas vencidas!';
     this.set('sub', sub, (t) => { el('wave-sub').textContent = t; });
-    this.set('prep', String(v.phase === 'preparing'), (t) => {
+    this.set('prep', String(v.phase === 'preparing' && v.sandbox === null), (t) => {
       show(el('btn-start-wave'), t === 'true');
       show(el('upgrades'), t === 'true');
     });
@@ -111,6 +120,13 @@ export class HUD {
       if (!v.boss) return;
       el('boss-name').textContent = v.boss.name;
       el('boss-fill').style.width = `${Math.max(0, v.boss.ratio * 100)}%`;
+    });
+
+    this.set('core', v.core === null ? '' : String(Math.round(v.core * 100)), (t) => {
+      show(el('core'), t !== '');
+      if (t === '') return;
+      el('core-fill').style.width = `${Math.max(0, Number(t))}%`;
+      el('core').classList.toggle('danger', Number(t) <= 30);
     });
 
     this.set('cdm', (1 - v.meleeCd).toFixed(2), (t) => { el('cd-melee').style.width = `${Number(t) * 100}%`; });

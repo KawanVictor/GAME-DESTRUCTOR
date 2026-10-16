@@ -11,7 +11,7 @@ function setup(total = 3, maxActive = 99) {
   let victory = 0;
   const waves = new WaveSystem({
     total, firstPreparation: 5, preparation: 8, completedPause: 2,
-    compose: (n): WaveDef => ({ number: n, enemies: Array<EnemyType>(n + 1).fill('basic'), spawnInterval: 1, reward: 10 * n, boss: false, hpScale: 1 }),
+    compose: (n): WaveDef => ({ number: n, enemies: Array<EnemyType>(n + 1).fill('basic'), spawnInterval: 1, reward: 10 * n, boss: false, hpScale: 1, speedScale: 1, modifier: null }),
     spawn: (type) => {
       if (alive.length >= maxActive) return null;
       spawned.push(type);
@@ -141,7 +141,7 @@ describe('composição das ondas', () => {
   });
 
   it('fora das ondas de chefe, cresce em quantidade, ritmo e recompensa', () => {
-    const normal = [1, 2, 3, 4, 6, 7, 8, 9, 11, 12].map(composeWave);
+    const normal = [1, 2, 3, 4, 6, 7, 8, 9, 11, 12].map((n) => composeWave(n));
     for (let i = 1; i < normal.length; i++) {
       expect(normal[i].enemies.length).toBeGreaterThan(normal[i - 1].enemies.length);
       expect(normal[i].spawnInterval).toBeLessThanOrEqual(normal[i - 1].spawnInterval);

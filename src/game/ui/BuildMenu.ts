@@ -10,7 +10,7 @@ export type BuildTool = { kind: 'none' } | { kind: 'piece'; id: BlockId } | { ki
 const TOOL_TEXT = {
   demolish: 'Clique em uma peça sua para demolir. Devolve metade do custo, menos o desgaste.',
   repair: 'Clique em uma peça sua danificada para restaurar a resistência.',
-  none: 'Escolha uma peça (1–7) e clique no cenário. Botão direito cancela.',
+  none: 'Escolha uma peça (1–9) e clique no cenário. Botão direito cancela.',
 } as const;
 
 /** Menu de construção: ícone e custo de cada peça, mais as ferramentas de reparo e demolição. */

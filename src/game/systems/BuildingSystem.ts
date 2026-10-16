@@ -19,6 +19,7 @@ export const FAILURE_TEXT: Record<BuildFailure, string> = {
   nothing_to_remove: 'Não há peça aqui',
   not_owned: 'Essa peça não é sua',
   not_damaged: 'A peça já está inteira',
+  core_locked: 'O núcleo não pode ser demolido',
 };
 
 /**
@@ -192,6 +193,7 @@ export class BuildingSystem {
     const fail = (reason: BuildFailure): RemoveResult => ({ ok: false, refund: 0, reason });
     if (!this.inBounds(x, y)) return fail('out_of_bounds');
     if (this.get(x, y).id === 'empty') return fail('nothing_to_remove');
+    if (this.get(x, y).core) return fail('core_locked');
     if (!this.isOwned(x, y)) return fail('not_owned');
     if (!this.inReach(x, y, ctx.player)) return fail('out_of_reach');
     return { ok: true, refund: this.refundFor(x, y) };
@@ -224,6 +226,7 @@ export class BuildingSystem {
     const fail = (reason: BuildFailure): BuildCheck => ({ ok: false, cost, reason });
     if (!this.inBounds(x, y)) return fail('out_of_bounds');
     if (this.get(x, y).id === 'empty') return fail('nothing_to_remove');
+    if (this.get(x, y).core) return fail('core_locked');
     if (!this.isOwned(x, y)) return fail('not_owned');
     if (!this.inReach(x, y, ctx.player)) return fail('out_of_reach');
     if (cost <= 0) return fail('not_damaged');
@@ -291,6 +294,26 @@ export class BuildingSystem {
   private dropUnsupported(x: number, y: number): void {
     const def = this.get(x, y);
     if (def.requiresFloor && this.get(x, y + 1).collision !== 'solid') this.destroy(x, y);
+  }
+
+  /**
+   * Coloca uma estrutura fixa da partida (ex.: o núcleo) antes do jogo começar,
+   * sem custo nem eventos. Ela conta como do jogador, para poder ser reparada.
+   */
+  placeStructure(x: number, y: number, id: BlockId): void {
+    if (!this.inBounds(x, y)) throw new Error(`Estrutura fora do mapa: ${x},${y}`);
+    this.setCell(x, y, blockById(id), true);
+  }
+
+  /** Células do jogador que atendem ao filtro (para a IA do Sabotador). */
+  ownedCells(filter: (def: BlockDef) => boolean): Array<{ x: number; y: number }> {
+    const out: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i < this.owned.length; i++) {
+      if (!this.owned[i]) continue;
+      const def = blockByIndex(this.cells[i]);
+      if (filter(def)) out.push({ x: i % this.cols, y: Math.floor(i / this.cols) });
+    }
+    return out;
   }
 
   private setCell(x: number, y: number, def: BlockDef, owned: boolean): void {

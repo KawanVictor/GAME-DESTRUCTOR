@@ -13,7 +13,7 @@ interface AssetManifest {
   audio?: Record<string, string>;
 }
 
-const WALK_RATE: Record<EnemyType, number> = { basic: 8, fast: 14, tank: 5, flyer: 16, spitter: 7, boss: 4 };
+const WALK_RATE: Record<EnemyType, number> = { basic: 8, fast: 14, tank: 5, flyer: 16, spitter: 7, boss: 4, saboteur: 12, healer: 6 };
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -74,6 +74,10 @@ export class PreloadScene extends Phaser.Scene {
     this.single('glow', 64, 64, art.drawGlow);
     this.single('pickup', 16, 16, art.drawPickup);
     this.single('turret-head', 34, 16, art.drawTurretHead);
+    this.single('cannon-head', 34, 18, art.drawCannonHead);
+    this.single('cannon-shell', 14, 14, art.drawCannonShell);
+    this.single('meteor', 28, 28, art.drawMeteor);
+    this.single('light', 256, 256, art.drawLight);
     this.single('portal', 56, 80, art.drawPortal);
     this.single('bg-sky', VIEW_WIDTH, VIEW_HEIGHT, (c) => art.drawSky(c, VIEW_WIDTH, VIEW_HEIGHT));
     this.single('bg-far', 1024, 360, (c) => art.drawRidge(c, 1024, 360, '#181d44', 190, 70, 34, 2, 5, 1.3));

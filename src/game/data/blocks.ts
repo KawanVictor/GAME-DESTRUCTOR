@@ -37,6 +37,22 @@ export const BLOCK_DEFS: readonly BlockDef[] = [
     id: 'turret', index: 10, name: 'Torreta', cost: 50, maxHp: 90, collision: 'solid', buildable: true, requiresFloor: true, trap: 'turret',
     description: 'Atira sozinha em inimigos próximos. Pode ser destruída.',
   },
+  {
+    id: 'ice_trap', index: 11, name: 'Armadilha de gelo', cost: 25, maxHp: 30, collision: 'none', buildable: true, requiresFloor: true, trap: 'ice',
+    description: 'Deixa lento quem pisa. Desgasta com o uso.',
+  },
+  {
+    id: 'cannon', index: 12, name: 'Canhão', cost: 70, maxHp: 110, collision: 'solid', buildable: true, requiresFloor: true, trap: 'cannon',
+    description: 'Atira devagar, mas cada tiro explode e atinge um grupo.',
+  },
+  {
+    id: 'core', index: 13, name: 'Núcleo', cost: 25, maxHp: 400, collision: 'solid', buildable: false, core: true,
+    description: 'Defenda o cristal: se ele cair, a partida acaba.',
+  },
+  {
+    id: 'bridge', index: 14, name: 'Ponte', cost: 0, maxHp: 120, collision: 'solid', buildable: false,
+    description: 'Tábuas sobre o abismo. Quebre para derrubar inimigos; reconstrua com plataformas.',
+  },
 ];
 
 const BY_ID = new Map<BlockId, BlockDef>(BLOCK_DEFS.map((d) => [d.id, d]));
@@ -55,7 +71,7 @@ export function blockByIndex(index: number): BlockDef {
   return BY_INDEX[index] ?? EMPTY;
 }
 
-/** Peças do menu de construção, na ordem das teclas 1–7. */
+/** Peças do menu de construção, na ordem das teclas 1–9. */
 export const BUILDABLE: readonly BlockDef[] = BLOCK_DEFS.filter((d) => d.buildable);
 
 /** Quadro extra do tileset: terreno com topo (não é um bloco). */

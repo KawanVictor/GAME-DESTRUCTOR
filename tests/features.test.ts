@@ -150,7 +150,8 @@ describe('arenas', () => {
       }
       // Altura do terreno por coluna: degraus de no máximo 1 tile, para os inimigos chegarem.
       const top = (col: number): number => {
-        for (let row = 0; row < b.rows; row++) if (b.get(col, row).id === 'terrain') return row;
+        // Na Ponte, as tábuas fazem o papel do chão sobre o abismo.
+        for (let row = 0; row < b.rows; row++) if (['terrain', 'bridge'].includes(b.get(col, row).id)) return row;
         return b.rows;
       };
       for (let col = 1; col < b.cols; col++) expect(Math.abs(top(col) - top(col - 1)), `coluna ${col}`).toBeLessThanOrEqual(1);

@@ -7,6 +7,8 @@ import Phaser from 'phaser';
 export class Projectile extends Phaser.Physics.Arcade.Image {
   damage = 0;
   blockDamage = 0;
+  /** Raio da explosão ao atingir algo, em px (0 = projétil comum). Usado pelo canhão. */
+  blast = 0;
   private startX = 0;
   private startY = 0;
   private range = 0;
@@ -20,6 +22,7 @@ export class Projectile extends Phaser.Physics.Arcade.Image {
     this.setRotation(Math.atan2(vy, vx));
     this.damage = damage;
     this.blockDamage = blockDamage;
+    this.blast = 0;
     this.range = range;
     this.startX = x;
     this.startY = y;

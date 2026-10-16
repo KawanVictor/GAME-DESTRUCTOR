@@ -137,3 +137,26 @@ input[type=checkbox] { width: 1.1em; height: 1.1em; accent-color: var(--accent);
 #hud.touch #build-menu { bottom: 6em; }
 
 #fatal { position: absolute; inset: 0; pointer-events: auto; background: #2a0a12; color: #fff; padding: 2em; white-space: pre-wrap; overflow: auto; user-select: text; -webkit-user-select: text; }
+
+/* ---- modos, conquistas, núcleo, sandbox e tutorial */
+.arenas { flex-wrap: wrap; }
+.modes .btn { font-size: 0.85em; }
+.arenas .btn:disabled { opacity: 0.35; }
+.achievements { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 0.35em 1em; }
+.achievements li { opacity: 0.45; }
+.achievements li.done { opacity: 1; }
+.achievements li strong { display: block; }
+.achievements li.done strong::before { content: "★ "; color: var(--gold); }
+.good { color: #4ee3a4; font-weight: 600; }
+#core { margin-top: 0.45em; font-size: 0.85em; font-weight: 700; color: #b8f6ff; }
+.bar.core { height: 0.7em; margin-top: 0.2em; }
+#core-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #3a6fe0, var(--accent)); transition: width 0.15s; }
+#core.danger { color: #ffc2cb; animation: pulse 0.6s ease-in-out infinite alternate; }
+@keyframes pulse { from { opacity: 1; } to { opacity: 0.55; } }
+#sandbox { display: flex; flex-wrap: wrap; gap: 0.35em; align-items: center; font-size: 0.82em; max-width: 46em; }
+#sandbox .btn { padding: 0.3em 0.6em; }
+#hud.building #sandbox { display: none !important; }
+#tutorial { position: absolute; left: 50%; top: 14em; transform: translateX(-50%); display: flex; gap: 0.8em; align-items: center; max-width: 44em; border-color: var(--accent); font-weight: 600; }
+#tutorial p { line-height: 1.4; }
+#tutorial .btn { flex: 0 0 auto; }
+body.no-attack [data-attack] { display: none !important; }

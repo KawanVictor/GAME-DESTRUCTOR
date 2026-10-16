@@ -27,11 +27,13 @@ A chave é o nome da textura; o arquivo precisa ter o mesmo tamanho de quadro e 
 | `enemy-tank` | 68×64 | 4 andando, 1 atacando |
 | `enemy-flyer` | 48×34 | 4 voando, 1 atacando |
 | `enemy-spitter` | 46×44 | 4 andando, 1 atacando |
+| `enemy-saboteur` | 44×38 | 4 andando, 1 atacando |
+| `enemy-healer` | 44×48 | 4 andando, 1 curando |
 | `enemy-boss` | 100×92 | 4 andando, 1 atacando |
-| `tiles` | 32×32 | vazio, terreno, rocha-mãe, caixote, plataforma, pedra, parede, explosivo, impulso, espinhos, torreta, terreno com topo |
+| `tiles` | 32×32 | vazio, terreno, rocha-mãe, caixote, plataforma, pedra, parede, explosivo, impulso, espinhos, torreta, gelo, canhão, núcleo, ponte, terreno com topo |
 | `cracks` | 32×32 | rachadura leve, rachadura forte |
 
-Imagens de um quadro só (sem `frameWidth`): `bullet` 18×8, `turret-bullet` 10×10, `enemy-bullet` 12×12, `spark` 8×8, `glow` 64×64, `pickup` 16×16, `turret-head` 34×16, `portal` 56×80, `bg-sky` 960×540, `bg-far` 1024×360, `bg-near` 1024×320.
+Imagens de um quadro só (sem `frameWidth`): `bullet` 18×8, `turret-bullet` 10×10, `enemy-bullet` 12×12, `spark` 8×8, `glow` 64×64, `pickup` 16×16, `turret-head` 34×16, `cannon-head` 34×18, `cannon-shell` 14×14, `meteor` 28×28, `light` 256×256 (recorte da escuridão; branco opaco no centro, transparente na borda), `portal` 56×80, `bg-sky` 960×540, `bg-far` 1024×360, `bg-near` 1024×320.
 
 Todos os personagens são desenhados virados para a direita.
 

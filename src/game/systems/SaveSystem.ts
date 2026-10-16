@@ -1,4 +1,5 @@
-import type { Action, ArenaId, SaveData, Settings, TouchMode } from '../types/game';
+import { MODE_ORDER } from '../data/modes';
+import type { Action, ArenaId, ModeId, SaveData, Settings, TouchMode } from '../types/game';
 
 const KEY = 'destructor.save.v1';
 
@@ -25,13 +26,16 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
 export function defaultSave(): SaveData {
   return {
     version: 1,
-    settings: { volume: 0.6, muted: false, music: true, arena: 'colina', touch: 'auto', bindings: cloneBindings(DEFAULT_BINDINGS) },
+    settings: { volume: 0.6, muted: false, music: true, arena: 'colina', mode: 'classic', touch: 'auto', bindings: cloneBindings(DEFAULT_BINDINGS) },
     bestWave: 0,
     stats: { kills: 0, games: 0, blocksPlaced: 0 },
+    daily: { date: '', bestWave: 0 },
+    achievements: [],
+    tutorialDone: false,
   };
 }
 
-export const ARENA_IDS: readonly ArenaId[] = ['colina', 'vale', 'planalto'];
+export const ARENA_IDS: readonly ArenaId[] = ['colina', 'vale', 'planalto', 'ponte', 'noite'];
 const TOUCH_MODES: readonly TouchMode[] = ['auto', 'on', 'off'];
 
 function cloneBindings(b: Record<Action, string[]>): Record<Action, string[]> {
@@ -69,12 +73,21 @@ export function restore(raw: string | null): SaveData {
   d.stats.kills = Math.floor(num(st.kills, 0, 0, 1e9));
   d.stats.games = Math.floor(num(st.games, 0, 0, 1e9));
   d.stats.blocksPlaced = Math.floor(num(st.blocksPlaced, 0, 0, 1e9));
+  const daily = (o.daily ?? {}) as Record<string, unknown>;
+  if (typeof daily.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(daily.date)) {
+    d.daily = { date: daily.date, bestWave: Math.floor(num(daily.bestWave, 0, 0, 9999)) };
+  }
+  if (Array.isArray(o.achievements)) {
+    d.achievements = [...new Set(o.achievements.filter((a): a is string => typeof a === 'string' && /^[a-z0-9_]{1,32}$/.test(a)))].slice(0, 64);
+  }
+  d.tutorialDone = o.tutorialDone === true;
   const se = (o.settings ?? {}) as Record<string, unknown>;
   const settings: Settings = d.settings;
   settings.volume = num(se.volume, settings.volume, 0, 1);
   settings.muted = typeof se.muted === 'boolean' ? se.muted : settings.muted;
   settings.music = typeof se.music === 'boolean' ? se.music : settings.music;
   if (ARENA_IDS.includes(se.arena as ArenaId)) settings.arena = se.arena as ArenaId;
+  if (MODE_ORDER.includes(se.mode as ModeId)) settings.mode = se.mode as ModeId;
   if (TOUCH_MODES.includes(se.touch as TouchMode)) settings.touch = se.touch as TouchMode;
   const b = (se.bindings ?? {}) as Record<string, unknown>;
   for (const action of Object.keys(settings.bindings) as Action[]) {
@@ -132,6 +145,7 @@ export class SaveSystem {
     if (patch.muted !== undefined) s.muted = patch.muted;
     if (patch.music !== undefined) s.music = patch.music;
     if (patch.arena !== undefined && ARENA_IDS.includes(patch.arena)) s.arena = patch.arena;
+    if (patch.mode !== undefined && MODE_ORDER.includes(patch.mode)) s.mode = patch.mode;
     if (patch.touch !== undefined && TOUCH_MODES.includes(patch.touch)) s.touch = patch.touch;
     this.save();
   }
@@ -152,6 +166,31 @@ export class SaveSystem {
     b[action] = [key];
     this.save();
     return true;
+  }
+
+  /** Registra conquistas e devolve só as que são novas. */
+  unlock(ids: readonly string[]): string[] {
+    const fresh = ids.filter((id) => !this.data.achievements.includes(id));
+    if (!fresh.length) return [];
+    this.data.achievements.push(...fresh);
+    this.save();
+    return fresh;
+  }
+
+  /** Registra o resultado de um desafio diário. Retorna true se bateu o recorde do dia. */
+  recordDaily(date: string, waves: number): boolean {
+    const d = this.data.daily;
+    if (d.date !== date) this.data.daily = { date, bestWave: 0 };
+    const record = waves > this.data.daily.bestWave;
+    if (record) this.data.daily.bestWave = waves;
+    this.save();
+    return record;
+  }
+
+  markTutorialDone(): void {
+    if (this.data.tutorialDone) return;
+    this.data.tutorialDone = true;
+    this.save();
   }
 
   resetBindings(): void {

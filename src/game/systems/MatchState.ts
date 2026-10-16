@@ -1,6 +1,7 @@
-import { PLAYER, START_RESOURCES, UPGRADE_IDS, UPGRADE_OFFERS, UPGRADES, type UpgradeId } from '../config';
+import { PLAYER, UPGRADE_IDS, UPGRADE_OFFERS, UPGRADES, type UpgradeId } from '../config';
+import { MODES } from '../data/modes';
 import { buildArena } from '../world/LevelBuilder';
-import type { ArenaId, LevelData } from '../types/game';
+import type { ArenaId, GridPos, LevelData, ModeDef, ModeId } from '../types/game';
 import { BuildingSystem } from './BuildingSystem';
 import { Health } from './CombatSystem';
 import { ResourceSystem } from './ResourceSystem';
@@ -22,7 +23,12 @@ export interface MatchMods {
  * (construções, materiais, vida, melhorias, contadores) sobrevive.
  */
 export interface MatchState {
+  mode: ModeDef;
   level: LevelData;
+  /** Gerador usado nas ofertas e regras das ondas (fixo por data no desafio diário). */
+  random: () => number;
+  /** Posição do núcleo, quando o modo tem um. */
+  core: GridPos | null;
   resources: ResourceSystem;
   building: BuildingSystem;
   playerHealth: Health;
@@ -34,13 +40,20 @@ export interface MatchState {
   outcome: 'playing' | 'victory' | 'defeat';
 }
 
-export function createMatch(arena: ArenaId = 'colina'): MatchState {
+export function createMatch(arena: ArenaId = 'colina', modeId: ModeId = 'classic', random: () => number = Math.random): MatchState {
+  const mode = MODES[modeId];
   const level = buildArena(arena);
-  const resources = new ResourceSystem(START_RESOURCES);
+  const resources = new ResourceSystem(mode.startResources);
+  const building = new BuildingSystem(level, resources);
+  const core = mode.core ? { ...level.coreSpot } : null;
+  if (core) building.placeStructure(core.x, core.y, 'core');
   const match: MatchState = {
+    mode,
     level,
+    random,
+    core,
     resources,
-    building: new BuildingSystem(level, resources),
+    building,
     playerHealth: new Health(PLAYER.maxHp, PLAYER.invulnerability),
     mods: { damage: 1, shotCooldown: 1, moveSpeed: 1, turretDamage: 1, dashCooldown: 1 },
     offers: [],
@@ -48,7 +61,7 @@ export function createMatch(arena: ArenaId = 'colina'): MatchState {
     blocksPlaced: 0,
     outcome: 'playing',
   };
-  rollOffers(match);
+  rollOffers(match, random);
   return match;
 }
 

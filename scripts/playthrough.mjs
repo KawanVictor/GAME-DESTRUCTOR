@@ -139,6 +139,8 @@ try {
   await waitForServer();
   browser = await chromium.launch({ channel: 'chrome' });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  // Sem o tutorial da primeira partida (ele cobriria a tela).
+  await page.addInitScript(() => { if (!localStorage.getItem('destructor.save.v1')) localStorage.setItem('destructor.save.v1', JSON.stringify({ version: 1, tutorialDone: true })); });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
@@ -167,7 +169,7 @@ try {
         onda: wave, segundos: Math.round((Date.now() - before.t) / 1000), abates: (after?.kills ?? 0) - before.kills,
         vidaAntes: Math.round(before.hp), vidaDepois: Math.round(after?.player.hp ?? 0), vidaMax: after?.player.maxHp ?? 0,
         materiais: after?.resources ?? 0, pecas: after?.ownedBlocks ?? 0, torretas: after?.turrets ?? 0,
-        fim: after?.outcome ?? 'gameover',
+        regra: after?.modifier ?? null, fim: after?.outcome ?? 'gameover',
       });
       console.log(JSON.stringify(report.at(-1)));
     } else {

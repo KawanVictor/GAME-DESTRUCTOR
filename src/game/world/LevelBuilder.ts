@@ -6,6 +6,8 @@ export const ARENAS: Record<ArenaId, { name: string; description: string }> = {
   colina: { name: 'Colina', description: 'Uma elevação central fácil de fortificar.' },
   vale: { name: 'Vale', description: 'Você começa embaixo; os inimigos descem dos dois lados.' },
   planalto: { name: 'Planalto', description: 'Terreno aberto e largo, com um platô comprido.' },
+  ponte: { name: 'Ponte', description: 'Uma ponte de tábuas sobre o abismo. Quebre as tábuas e derrube os inimigos.' },
+  noite: { name: 'Noite', description: 'Escuridão total: só se enxerga perto do herói, das defesas e dos portais.' },
 };
 
 /** Pequeno ajudante para desenhar a grade de uma arena. */
@@ -45,11 +47,11 @@ class Grid {
   }
 }
 
-type Layout = (g: Grid) => { playerSpawn: GridPos; enemySpawns: GridPos[] };
+type Layout = (g: Grid) => { playerSpawn: GridPos; enemySpawns: GridPos[]; abyss?: boolean; dark?: boolean };
 
 // Regra de todas as arenas: degraus de no máximo 1 tile entre colunas
 // vizinhas, para qualquer inimigo terrestre conseguir chegar ao herói.
-const LAYOUTS: Record<ArenaId, Layout> = {
+const LAYOUTS: Partial<Record<ArenaId, Layout>> = {
   colina(g) {
     const { mid, ground, cols } = g;
     g.raise(mid - 5, mid + 4, ground - 1);
@@ -99,10 +101,46 @@ const LAYOUTS: Record<ArenaId, Layout> = {
   },
 };
 
+/** Arenas com regra própria (abismo, escuridão) ficam no fim da lista. */
+Object.assign(LAYOUTS, {
+  ponte(g: Grid) {
+    const { mid, ground, cols, rows } = g;
+    // Abismo no meio: sem chão nem rocha-mãe até o fundo do mapa.
+    const a0 = mid - 15;
+    const a1 = mid + 14;
+    g.fill(a0, ground, a1, rows - 1, 'empty');
+    // A ponte de tábuas, no nível do chão, liga os dois lados.
+    g.fill(a0, ground, a1, ground, 'bridge');
+    g.platform(mid - 10, ground - 4, 5); g.platform(mid + 6, ground - 4, 5); g.platform(mid - 2, ground - 6, 4);
+    g.platform(6, ground - 4, 4); g.platform(cols - 10, ground - 4, 4);
+    g.crates([[mid - 8, ground - 5], [mid + 8, ground - 5], [mid, ground - 7], [8, ground - 1], [cols - 9, ground - 1]]);
+    return {
+      playerSpawn: { x: mid, y: ground - 1 },
+      enemySpawns: [{ x: 2, y: ground - 1 }, { x: cols - 3, y: ground - 1 }],
+      abyss: true,
+    };
+  },
+
+  noite(g: Grid) {
+    const { mid, ground, cols } = g;
+    g.raise(mid - 8, mid + 7, ground - 1);
+    g.raise(9, 16, ground - 1);
+    g.raise(cols - 17, cols - 10, ground - 1);
+    g.platform(mid - 4, ground - 5, 8); g.platform(18, ground - 4, 5); g.platform(cols - 23, ground - 4, 5);
+    g.platform(4, ground - 4, 4); g.platform(cols - 8, ground - 4, 4);
+    g.crates([[mid - 3, ground - 6], [mid + 2, ground - 6], [20, ground - 5], [cols - 21, ground - 5], [12, ground - 2], [cols - 13, ground - 2]]);
+    return {
+      playerSpawn: { x: mid, y: ground - 2 },
+      enemySpawns: [{ x: 2, y: ground - 1 }, { x: cols - 3, y: ground - 1 }],
+      dark: true,
+    };
+  },
+} satisfies Partial<Record<ArenaId, Layout>>);
+
 /** Monta uma arena (dados puros, sem Phaser), com um portal inimigo em cada ponta. */
 export function buildArena(id: ArenaId = 'colina', cols = WORLD_COLS, rows = WORLD_ROWS): LevelData {
   const grid = new Grid(cols, rows);
-  const { playerSpawn, enemySpawns } = LAYOUTS[id](grid);
+  const { playerSpawn, enemySpawns, abyss = false, dark = false } = (LAYOUTS as Record<ArenaId, Layout>)[id](grid);
   return {
     id,
     name: ARENAS[id].name,
@@ -112,5 +150,9 @@ export function buildArena(id: ArenaId = 'colina', cols = WORLD_COLS, rows = WOR
     playerSpawn,
     enemySpawns,
     protectedZones: enemySpawns.map((s) => ({ x: s.x, y: s.y, radius: 2 })),
+    // O núcleo fica dois tiles à esquerda de onde o herói começa, no mesmo nível.
+    coreSpot: { x: playerSpawn.x - 2, y: playerSpawn.y },
+    abyss,
+    dark,
   };
 }

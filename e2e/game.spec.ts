@@ -1,36 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { DebugApi, DebugSnapshot } from '../src/game/debug';
-
-declare global {
-  interface Window {
-    __destructor?: { scene: string; game: DebugApi | null };
-  }
-}
-
-// Os testes usam teclado e mouse de verdade. A API ?test=1 serve para LER o
-// estado (posição, recursos, onda) e, em dois casos, criar um inimigo avulso.
-
-const snap = (page: Page): Promise<DebugSnapshot> =>
-  page.evaluate(() => (window.__destructor?.game as DebugApi).snapshot());
-const cell = (page: Page, x: number, y: number): Promise<string> =>
-  page.evaluate(([cx, cy]) => (window.__destructor?.game as DebugApi).cell(cx, cy), [x, y]);
-
-async function clickCell(page: Page, x: number, y: number, button: 'left' | 'right' = 'left'): Promise<void> {
-  const p = await page.evaluate(([cx, cy]) => (window.__destructor?.game as DebugApi).cellToClient(cx, cy), [x, y]);
-  await page.mouse.move(p.x, p.y);
-  await page.waitForTimeout(80);
-  await page.mouse.click(p.x, p.y, { button });
-  await page.waitForTimeout(80);
-}
-
-async function startGame(page: Page): Promise<DebugSnapshot> {
-  await page.goto('/?test=1');
-  await expect(page.locator('#menu')).toBeVisible();
-  await page.click('#btn-play');
-  await expect(page.locator('#hud')).toBeVisible();
-  await page.waitForFunction(() => window.__destructor?.scene === 'game' && window.__destructor.game?.snapshot().player.onFloor === true);
-  return snap(page);
-}
+import { cell, clickCell, guardPages, snap, startGame } from './helpers';
 
 /** Leva o herói da colina central para o chão plano à esquerda. */
 async function toFlatGround(page: Page): Promise<DebugSnapshot> {
@@ -74,20 +44,7 @@ async function fightUntil(page: Page, done: (s: DebugSnapshot) => boolean, timeo
 const WEBKIT_LENTO = 'depende de tempo de resposta: o WebKit headless no Windows roda a ~11 fps';
 
 test.describe('DESTRUCTOR', () => {
-  // Nenhum teste pode terminar com erro de JavaScript na página.
-  // Idem para qualquer recurso bloqueado pela Content-Security-Policy.
-  let pageErrors: string[] = [];
-  test.beforeEach(({ page }) => {
-    pageErrors = [];
-    page.on('pageerror', (e) => pageErrors.push(e.message));
-    page.on('console', (m) => {
-      if (/content.security.policy|violates the following/i.test(m.text())) pageErrors.push(`CSP: ${m.text()}`);
-    });
-  });
-  test.afterEach(async ({ page }) => {
-    await expect(page.locator('#fatal')).toBeHidden();
-    expect(pageErrors).toEqual([]);
-  });
+  guardPages();
 
   test('menu inicial é exibido e a partida pode ser iniciada', async ({ page }) => {
     const errors: string[] = [];
@@ -164,7 +121,7 @@ test.describe('DESTRUCTOR', () => {
 
     await page.keyboard.press('b');
     await expect(page.locator('#build-menu')).toBeVisible();
-    await expect(page.locator('#build-items .piece')).toHaveCount(9);       // 7 peças + reparo + demolição
+    await expect(page.locator('#build-items .piece')).toHaveCount(11);      // 9 peças + reparo + demolição
 
     // Escolher a peça pelo menu não constrói nada por acidente.
     await page.click('[data-piece="stone_block"]');
@@ -487,7 +444,7 @@ test.describe('DESTRUCTOR', () => {
 
   test('arenas: a escolha no menu muda o mapa e fica salva', async ({ page }) => {
     await page.goto('/?test=1');
-    await expect(page.locator('#arena-list [data-arena]')).toHaveCount(3);
+    await expect(page.locator('#arena-list [data-arena]')).toHaveCount(5);
     await expect(page.locator('[data-arena="colina"]')).toHaveAttribute('aria-checked', 'true');
     await page.click('[data-arena="vale"]');
     await expect(page.locator('[data-arena="vale"]')).toHaveAttribute('aria-checked', 'true');

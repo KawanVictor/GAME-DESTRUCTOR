@@ -68,6 +68,39 @@ export const TURRET = {
   projectileSpeed: 520,
 } as const;
 
+export const CANNON = {
+  /** Raio de detecção em tiles. */
+  range: 8,
+  fireInterval: 1.8,
+  projectileSpeed: 430,
+  /** Dano máximo da explosão de cada tiro (cai com a distância) e raio em tiles. */
+  damage: 26,
+  radius: 1.6,
+} as const;
+
+export const ICE = {
+  /** Fração da velocidade que sobra para quem está lento. */
+  slow: 0.4,
+  /** Quanto tempo a lentidão dura depois de sair do gelo, em segundos. */
+  duration: 1.2,
+  /** Desgaste da armadilha a cada inimigo atingido (no máximo uma vez por segundo por inimigo). */
+  wear: 1,
+} as const;
+
+/** Queda no abismo (arena Ponte). */
+export const ABYSS = {
+  playerDamage: 30,
+} as const;
+
+export const METEORS = {
+  interval: 2.4,
+  /** Aviso no chão antes do impacto, em segundos. */
+  warning: 0.9,
+  radius: 1.6,
+  damage: 22,
+  blockDamage: 35,
+} as const;
+
 /** Mira assistida do disparo: procura um inimigo dentro deste cone à frente do herói. */
 export const AIM = {
   coneDegrees: 55,

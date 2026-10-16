@@ -19,6 +19,7 @@ export interface CollisionRefs {
 export interface CollisionHandlers {
   bulletHitsTile(bullet: Projectile, tileX: number, tileY: number): void;
   bulletHitsEnemy(bullet: Projectile, enemy: Enemy): void;
+  turretBulletHitsTile(bullet: Projectile): void;
   enemyBulletHitsTile(bullet: Projectile, tileX: number, tileY: number): void;
   enemyBulletHitsPlayer(bullet: Projectile): void;
   enemyTouchesPlayer(enemy: Enemy): void;
@@ -48,7 +49,7 @@ export function setupCollisions(scene: Phaser.Scene, r: CollisionRefs, h: Collis
     const tile = t as Tile;
     h.bulletHitsTile(b as Projectile, tile.x, tile.y);
   }, passesWalls);
-  physics.add.collider(r.turretBullets, r.layer, (a, b) => ((a instanceof Projectile ? a : b) as Projectile).kill(), passesWalls);
+  physics.add.collider(r.turretBullets, r.layer, (a, b) => h.turretBulletHitsTile((a instanceof Projectile ? a : b) as Projectile), passesWalls);
 
   // Grupo x grupo: o Phaser não garante a ordem dos argumentos, então
   // identificamos o projétil pelo tipo em vez de confiar na posição.

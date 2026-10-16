@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BOSS_SLAM, GRAVITY, TILE } from '../config';
+import { BOSS_SLAM, GRAVITY, ICE, TILE } from '../config';
 import { ENEMY_DEFS } from '../data/enemies';
 import type { BuildingSystem } from '../systems/BuildingSystem';
 import { Cooldown, Health } from '../systems/CombatSystem';
@@ -13,6 +13,12 @@ export interface EnemyWorld {
   building: BuildingSystem;
   target: { x: number; y: number; bottom: number; alive: boolean };
   spawnPoints: ReadonlyArray<{ x: number; y: number }>;
+  /** Alvo principal das tropas terrestres (o núcleo), quando houver. */
+  objective: { x: number; y: number; bottom: number } | null;
+  /** Peça do jogador mais próxima para o Sabotador atacar (centro em px), ou null. */
+  sabotageTarget(fromX: number, fromY: number): { x: number; y: number } | null;
+  /** Cura os aliados em volta; devolve quantos foram curados. */
+  healAround(healer: Enemy, radius: number, amount: number): number;
   /** Golpe em um bloco (a cena aplica o dano e os efeitos). */
   hitBlock(x: number, y: number, damage: number): void;
   /** Disparo de um inimigo de longo alcance, de (x, y) em direção ao alvo. */
@@ -31,7 +37,11 @@ let nextId = 1;
  *   ground — anda, pula o que consegue e demole o que não consegue;
  *   flyer  — voa por cima das barreiras e mergulha no herói;
  *   ranged — mantém distância e atira quando tem linha de visão;
- *   boss   — como ground, mais um salto com golpe de área.
+ *   boss   — como ground, mais um salto com golpe de área;
+ *   saboteur — ignora o herói e vai direto nas torretas e defesas;
+ *   healer — fica para trás e cura os aliados por perto.
+ * No modo Defender o núcleo, as tropas terrestres vão atrás do núcleo
+ * (e só se desviam para o herói quando ele chega perto).
  * Inimigo terrestre parado tempo demais é recolocado em um portal.
  */
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
@@ -55,8 +65,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private noSight = 0;
   private windup = 0;
   private leaping = false;
+  private now = 0;
+  private slowUntil = -Infinity;
+  private tintedSlow = false;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, type: EnemyType, hpScale = 1) {
+  constructor(scene: Phaser.Scene, x: number, y: number, type: EnemyType, hpScale = 1, private readonly speedScale = 1) {
     super(scene, x, y, `enemy-${type}`, 0);
     this.def = ENEMY_DEFS[type];
     this.health = new Health(Math.round(this.def.maxHp * hpScale));
@@ -94,9 +107,32 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return this.ai !== 'dead';
   }
 
+  /** Velocidade atual: a da onda, reduzida enquanto estiver lento (gelo). */
+  get speed(): number {
+    return this.def.speed * this.speedScale * (this.slowed ? ICE.slow : 1);
+  }
+
+  get slowed(): boolean {
+    return this.now < this.slowUntil;
+  }
+
+  /** Cor normal, ou azulada enquanto estiver lento (também ao fim do clarão de dano). */
+  restoreTint(): void {
+    this.tintedSlow = this.slowed;
+    if (this.tintedSlow) this.setTint(0x9fe7ff);
+    else this.clearTint();
+  }
+
+  /** Deixa o inimigo lento por um tempo (armadilha de gelo). */
+  slow(now: number): void {
+    this.slowUntil = now + ICE.duration;
+  }
+
   tick(dt: number, w: EnemyWorld): void {
     if (this.ai === 'dead') return;
+    this.now = w.now;
     if (this.attackAnim > 0) this.attackAnim -= dt;
+    if (this.slowed !== this.tintedSlow) this.restoreTint();
 
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;
@@ -106,6 +142,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     if (this.def.behavior === 'flyer') this.tickFlyer(dt, w);
     else this.tickGround(dt, w);
+    if (this.def.heal) this.tickHeal(w);
 
     this.setFlipX(this.dir < 0);
     if (this.attackAnim > 0 || this.windup > 0) { this.anims.stop(); this.setFrame(4); }
@@ -114,11 +151,29 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   // ----------------------------------------------------------------- solo
 
+  /**
+   * Para onde a tropa terrestre vai: o herói, o núcleo (quando o herói está
+   * longe) ou, para o Sabotador, a peça do jogador mais próxima.
+   */
+  private goal(w: EnemyWorld): { x: number; y: number; bottom: number; block: boolean } {
+    const body = this.arcade;
+    if (this.def.behavior === 'saboteur') {
+      const t = w.sabotageTarget(body.center.x, body.center.y);
+      if (t) return { x: t.x, y: t.y, bottom: t.y + TILE / 2, block: true };
+    }
+    const heroDist = Math.hypot(w.target.x - body.center.x, w.target.y - body.center.y);
+    if (w.objective && this.def.behavior !== 'healer' && this.def.behavior !== 'ranged' && heroDist > TILE * 3) {
+      return { ...w.objective, block: true };
+    }
+    return { x: w.target.x, y: w.target.y, bottom: w.target.bottom, block: false };
+  }
+
   private tickGround(dt: number, w: EnemyWorld): void {
     const body = this.arcade;
     const onFloor = body.blocked.down || body.touching.down;
-    const dx = w.target.x - body.center.x;
-    const dist = Math.hypot(dx, w.target.y - body.center.y);
+    const g = this.goal(w);
+    const dx = g.x - body.center.x;
+    const dist = Math.hypot(dx, g.y - body.center.y);
     this.huntTimer -= dt;
     const aware = w.target.alive && (this.alerted || this.huntTimer <= 0 || dist < this.def.detectTiles * TILE);
 
@@ -130,24 +185,37 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.dir = this.turnTimer <= 0 && Math.random() < 0.7 ? (dx < 0 ? -1 : 1) : (this.dir > 0 ? -1 : 1);
         this.turnTimer = 1.5 + Math.random() * 2;
       }
-      body.setVelocityX(this.dir * this.def.speed * 0.5);
+      body.setVelocityX(this.dir * this.speed * 0.5);
       return;
     }
 
     this.alerted = true;
+    // Encostado na peça-alvo (Sabotador, núcleo): golpeia direto, sem tentar pular por cima.
+    if (g.block && Math.abs(dx) < TILE * 1.25 && Math.abs(g.y - body.center.y) < TILE * 1.6) {
+      body.setVelocityX(0);
+      this.ai = 'attack';
+      if (this.attackCd.trigger(w.now, this.def.attackInterval)) {
+        this.attackAnim = 0.25;
+        this.stuckTimer = 0;
+        w.hitBlock(Math.floor(g.x / TILE), Math.floor(g.y / TILE), this.def.blockDamage);
+      }
+      this.dir = dx < 0 ? -1 : 1;
+      return;
+    }
     if (this.ai !== 'attack' || this.attackAnim <= 0) this.ai = 'chase';
     if (this.def.behavior === 'boss' && this.tickSlam(dt, w, onFloor, dx, dist)) return;
 
     let dir: -1 | 0 | 1 = Math.abs(dx) < 8 ? 0 : dx < 0 ? -1 : 1;
     if (dir !== 0) this.dir = dir;
     if (this.def.ranged) dir = this.tickRanged(dt, w, dir, dist);
+    else if (this.def.heal) dir = this.keepDistance(dir, dist, this.def.heal.keepTiles);
 
-    body.setVelocityX(dir * this.def.speed);
+    body.setVelocityX(dir * this.speed);
     if (dir !== 0 && onFloor && (dir > 0 ? body.blocked.right : body.blocked.left)) this.handleObstacle(dir, w);
 
     // Herói logo acima e inalcançável: salto alto de tempos em tempos.
-    const above = body.bottom - w.target.bottom;
-    if (!this.def.ranged && onFloor && Math.abs(dx) < TILE * 1.5 && above > TILE * 1.5) {
+    const above = body.bottom - g.bottom;
+    if (!this.def.ranged && !g.block && onFloor && Math.abs(dx) < TILE * 1.5 && above > TILE * 1.5) {
       this.aboveTimer += dt;
       if (this.aboveTimer > 2.2) {
         this.aboveTimer = 0;
@@ -183,6 +251,23 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     if (!sees && this.noSight > 2.5) return toward;      // procura um ângulo (ou derruba a cobertura)
     return dist > r.keepTiles * TILE ? toward : 0;
+  }
+
+  /** Curandeiro: mantém distância do herói (sem atirar). */
+  private keepDistance(toward: -1 | 0 | 1, dist: number, keepTiles: number): -1 | 0 | 1 {
+    const body = this.arcade;
+    if (dist < keepTiles * TILE * 0.7) {
+      const away = (toward === 0 ? -this.dir : -toward) as 1 | -1;
+      return (away > 0 ? body.blocked.right : body.blocked.left) ? 0 : away;
+    }
+    return dist > keepTiles * TILE ? toward : 0;
+  }
+
+  /** Curandeiro: de tempos em tempos, cura os aliados em volta. */
+  private tickHeal(w: EnemyWorld): void {
+    const h = this.def.heal;
+    if (!h || !this.specialCd.trigger(w.now, h.interval)) return;
+    if (w.healAround(this, h.radiusTiles * TILE, h.amount) > 0) this.attackAnim = 0.35;
   }
 
   /** Chefe: prepara, salta sobre o herói e golpeia ao aterrissar. True enquanto ocupado. */
@@ -272,12 +357,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const ddx = gx - body.center.x;
     const ddy = gy - body.center.y;
     const d = Math.hypot(ddx, ddy) || 1;
-    const speed = this.def.speed * (diving ? 1.7 : 1);
+    const speed = this.speed * (diving ? 1.7 : 1);
     const k = Math.min(1, dt * 4);
     body.velocity.x += ((ddx / d) * speed - body.velocity.x) * k;
     body.velocity.y += ((ddy / d) * speed - body.velocity.y) * k;
     // Encostou em bloco: contorna por cima.
-    if (body.blocked.left || body.blocked.right || body.blocked.down) body.velocity.y = -this.def.speed;
+    if (body.blocked.left || body.blocked.right || body.blocked.down) body.velocity.y = -this.speed;
     if (Math.abs(dx) > 6) this.dir = dx < 0 ? -1 : 1;
   }
 
@@ -301,10 +386,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.hurtTimer = 0.16;
       this.arcade.setVelocity(knockX * this.def.knockback, -120 * this.def.knockback);
     }
-    if (this.health.dead) {
-      this.ai = 'dead';
-      this.arcade.enable = false;
-    }
+    if (this.health.dead) this.die();
     return dealt;
+  }
+
+  /** Cura (Curandeiro). Devolve quanto foi curado. */
+  heal(amount: number): number {
+    return this.alive ? this.health.heal(amount) : 0;
+  }
+
+  /** Tira de jogo na hora (queda no abismo, limpeza do sandbox). */
+  die(): void {
+    this.ai = 'dead';
+    this.arcade.enable = false;
   }
 }

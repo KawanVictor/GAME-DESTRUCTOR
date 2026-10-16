@@ -41,11 +41,13 @@ export class PickupController {
   }
 
   update(now: number, dt: number): void {
+    const bottom = this.ctx.scene.physics.world.bounds.bottom;
     const px = this.ctx.player.x;
     const py = this.ctx.player.arcade.center.y;
     for (const p of (this.group.getChildren() as Pickup[]).slice()) {
       const age = now - ((p.getData('born') as number) ?? now);
-      if (age > LIFETIME) { p.destroy(); continue; }
+      // Some com o tempo, ou ao cair no abismo.
+      if (age > LIFETIME || p.y > bottom + 64) { p.destroy(); continue; }
       p.setAlpha(age > LIFETIME - 4 && Math.floor(now * 8) % 2 === 0 ? 0.3 : 1);
       const d = Math.hypot(px - p.x, py - p.y);
       if (d < MAGNET_RADIUS && d > 1 && !this.ctx.ended) {

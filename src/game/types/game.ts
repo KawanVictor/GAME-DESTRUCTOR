@@ -11,7 +11,11 @@ export type BlockId =
   | 'explosive_block'
   | 'jump_pad'
   | 'spike_trap'
-  | 'turret';
+  | 'turret'
+  | 'ice_trap'
+  | 'cannon'
+  | 'core'
+  | 'bridge';
 
 /**
  * Como a peça colide:
@@ -46,15 +50,17 @@ export interface BlockDef {
   /** Precisa de um bloco sólido logo abaixo. */
   requiresFloor?: boolean;
   explosive?: ExplosiveDef;
-  trap?: 'spikes' | 'turret';
+  trap?: 'spikes' | 'turret' | 'ice' | 'cannon';
+  /** O núcleo do modo "Defender o núcleo": não pode ser demolido; se cair, a partida acaba. */
+  core?: boolean;
   /** Materiais soltos ao ser destruído (ex.: caixotes do cenário). */
   drops?: number;
 }
 
-export type EnemyType = 'basic' | 'fast' | 'tank' | 'flyer' | 'spitter' | 'boss';
+export type EnemyType = 'basic' | 'fast' | 'tank' | 'flyer' | 'spitter' | 'boss' | 'saboteur' | 'healer';
 
 /** Como o inimigo se move e ataca. */
-export type EnemyBehavior = 'ground' | 'flyer' | 'ranged' | 'boss';
+export type EnemyBehavior = 'ground' | 'flyer' | 'ranged' | 'boss' | 'saboteur' | 'healer';
 
 export interface EnemyRangedDef {
   damage: number;
@@ -67,10 +73,20 @@ export interface EnemyRangedDef {
   keepTiles: number;
 }
 
+/** Inimigo de suporte: cura os aliados por perto. */
+export interface EnemyHealDef {
+  amount: number;
+  radiusTiles: number;
+  interval: number;
+  /** Distância que tenta manter do herói, em tiles. */
+  keepTiles: number;
+}
+
 export interface EnemyDef {
   type: EnemyType;
   behavior: EnemyBehavior;
   ranged?: EnemyRangedDef;
+  heal?: EnemyHealDef;
   maxHp: number;
   speed: number;
   /** Dano por golpe no herói. */
@@ -137,7 +153,8 @@ export type BuildFailure =
   | 'protected_zone'
   | 'nothing_to_remove'
   | 'not_owned'
-  | 'not_damaged';
+  | 'not_damaged'
+  | 'core_locked';
 
 export interface BuildCheck {
   ok: boolean;
@@ -178,6 +195,33 @@ export interface WaveDef {
   boss: boolean;
   /** Multiplicador da vida dos inimigos nesta onda. */
   hpScale: number;
+  /** Multiplicador da velocidade dos inimigos nesta onda. */
+  speedScale: number;
+  /** Regra especial da onda (ou null). */
+  modifier: ModifierId | null;
+}
+
+/** Regras especiais que mudam uma onda. */
+export type ModifierId = 'haste' | 'armored' | 'meteors' | 'fog' | 'bounty';
+
+/** Modos de jogo. */
+export type ModeId = 'classic' | 'core' | 'daily' | 'builder' | 'sandbox';
+
+export interface ModeDef {
+  id: ModeId;
+  name: string;
+  description: string;
+  /** Ondas até a vitória (0 = sem vitória, como no sandbox). */
+  totalWaves: number;
+  /** O herói pode atacar? */
+  canAttack: boolean;
+  startResources: number;
+  /** Há um núcleo a defender. */
+  core: boolean;
+  /** Sem ondas: o jogador chama os inimigos; materiais infinitos. */
+  sandbox: boolean;
+  /** Arena, modificadores e ofertas definidos pela data. */
+  daily: boolean;
 }
 
 export type Action =
@@ -193,7 +237,7 @@ export type Action =
   | 'repair'
   | 'startWave';
 
-export type ArenaId = 'colina' | 'vale' | 'planalto';
+export type ArenaId = 'colina' | 'vale' | 'planalto' | 'ponte' | 'noite';
 
 /** auto = aparece em telas de toque. */
 export type TouchMode = 'auto' | 'on' | 'off';
@@ -203,6 +247,7 @@ export interface Settings {
   muted: boolean;
   music: boolean;
   arena: ArenaId;
+  mode: ModeId;
   touch: TouchMode;
   /** Nomes de tecla do Phaser (ex.: 'A', 'LEFT', 'SPACE'). Remapeável. */
   bindings: Record<Action, string[]>;
@@ -219,6 +264,12 @@ export interface SaveData {
   settings: Settings;
   bestWave: number;
   stats: Stats;
+  /** Recorde do desafio diário, por data (AAAA-MM-DD). */
+  daily: { date: string; bestWave: number };
+  /** Conquistas desbloqueadas (ids). */
+  achievements: string[];
+  /** O tutorial da primeira partida já foi concluído ou pulado. */
+  tutorialDone: boolean;
 }
 
 export interface LevelData {
@@ -232,4 +283,10 @@ export interface LevelData {
   enemySpawns: GridPos[];
   /** Áreas onde não se pode construir (portais de inimigos). */
   protectedZones: Array<GridPos & { radius: number }>;
+  /** Onde fica o núcleo no modo "Defender o núcleo". */
+  coreSpot: GridPos;
+  /** Sem fundo: quem cai some no abismo. */
+  abyss: boolean;
+  /** Arena escura: só se enxerga perto das fontes de luz. */
+  dark: boolean;
 }

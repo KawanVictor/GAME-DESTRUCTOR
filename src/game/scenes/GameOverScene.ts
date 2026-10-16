@@ -11,6 +11,14 @@ export interface GameOverData {
   blocksPlaced: number;
   bestWave: number;
   record: boolean;
+  /** Por que a derrota: o herói caiu ou o núcleo foi destruído. */
+  reason: 'hero' | 'core';
+  mode: string;
+  modeName: string;
+  /** Desafio diário: melhor resultado do dia e se este foi um novo recorde. */
+  daily: { best: number; record: boolean } | null;
+  /** Nomes das conquistas desbloqueadas nesta partida. */
+  achievements: string[];
 }
 
 /** Tela de derrota ou de sessão concluída, sobre a partida congelada. */
@@ -24,11 +32,17 @@ export class GameOverScene extends Phaser.Scene {
   create(data: GameOverData): void {
     const victory = data.outcome === 'victory';
     el('over-title').textContent = victory ? 'Vitória!' : 'Derrota';
+    const fell = data.reason === 'core' ? 'O núcleo foi destruído' : 'Seu herói caiu';
+    const plural = data.waves > 1 ? 's' : '';
     el('over-detail').textContent = victory
-      ? `Você sobreviveu às ${data.waves} ondas.`
-      : data.waves > 0 ? `Seu herói caiu depois de vencer ${data.waves} onda${data.waves > 1 ? 's' : ''}.` : 'Seu herói caiu na primeira onda.';
-    el('over-stats').textContent = `Inimigos derrotados: ${data.kills} · Peças construídas: ${data.blocksPlaced} · `
-      + (data.record ? `Novo recorde: onda ${data.bestWave}!` : `Recorde: onda ${data.bestWave}`);
+      ? `Você sobreviveu às ${data.waves} ondas (${data.modeName}).`
+      : data.waves > 0 ? `${fell} depois de vencer ${data.waves} onda${plural}.` : `${fell} na primeira onda.`;
+    let stats = `Inimigos derrotados: ${data.kills} · Peças construídas: ${data.blocksPlaced}`;
+    if (data.daily) stats += data.daily.record ? ` · Recorde do dia: onda ${data.daily.best}!` : ` · Melhor do dia: onda ${data.daily.best}`;
+    else if (data.mode !== 'sandbox') stats += data.record ? ` · Novo recorde: onda ${data.bestWave}!` : ` · Recorde: onda ${data.bestWave}`;
+    el('over-stats').textContent = stats;
+    el('over-achievements').textContent = data.achievements.length ? `Conquistas: ${data.achievements.join(' · ')}` : '';
+    show(el('over-achievements'), data.achievements.length > 0);
     show(el('btn-over-continue'), victory);
 
     this.abort = new AbortController();

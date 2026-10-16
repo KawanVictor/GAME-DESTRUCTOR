@@ -40,7 +40,9 @@ describe('recursos e custos', () => {
 
   it('há pelo menos 5 peças e 2 armadilhas no registro', () => {
     expect(BUILDABLE.filter((b) => !b.trap).length).toBeGreaterThanOrEqual(5);
-    expect(BUILDABLE.filter((b) => b.trap).length).toBe(2);
+    expect(BUILDABLE.filter((b) => b.trap).length).toBeGreaterThanOrEqual(2);
+    // As teclas 1–9 alcançam todas as peças do menu.
+    expect(BUILDABLE.length).toBeLessThanOrEqual(9);
     for (const b of BUILDABLE) expect(b.cost).toBeGreaterThan(0);
   });
 });

@@ -1,9 +1,10 @@
 import type Phaser from 'phaser';
-import { AIM, BOSS_SLAM, SPIKES, TILE } from '../../config';
+import { AIM, BOSS_SLAM, ICE, SPIKES, TILE } from '../../config';
 import { MELEE, RANGED } from '../../data/weapons';
 import type { Enemy } from '../../entities/Enemy';
 import { Projectile } from '../../entities/Projectile';
 import { audio } from '../../services';
+import type { KillCause } from '../../systems/Achievements';
 import { overlaps } from '../../systems/BuildingSystem';
 import { explosionDamage, pickAimTarget } from '../../systems/CombatSystem';
 import type { ExplosiveDef } from '../../types/game';
@@ -16,8 +17,11 @@ const ENEMY_SHOT_BLOCK_DAMAGE = 5;
 
 export interface CombatEvents {
   /** Um inimigo morreu (já fora do grupo de vivos). */
-  onEnemyKilled(enemy: Enemy): void;
+  onEnemyKilled(enemy: Enemy, cause: KillCause): void;
   onPlayerDead(): void;
+  onPlayerHurt?(amount: number): void;
+  /** Quantos inimigos uma única explosão derrotou. */
+  onExplosionKills?(count: number): void;
 }
 
 /**
@@ -30,6 +34,7 @@ export class CombatController {
   readonly turretBullets: Phaser.Physics.Arcade.Group;
   readonly enemyBullets: Phaser.Physics.Arcade.Group;
   private readonly spikeTimer = new SpikeTimer();
+  private readonly iceTimer = new SpikeTimer();
 
   constructor(
     private readonly ctx: GameContext,
@@ -108,8 +113,41 @@ export class CombatController {
 
   /** Disparo do herói ou de torreta acertou um inimigo. */
   bulletHitsEnemy(bullet: Projectile, e: Enemy): void {
-    this.damageEnemy(e, bullet.damage, Math.sign(bullet.velocityX) * 120);
+    if (bullet.blast > 0) this.shellBurst(bullet);
+    else this.damageEnemy(e, bullet.damage, Math.sign(bullet.velocityX) * 120);
     bullet.kill();
+  }
+
+  /** Disparo de torreta ou canhão bateu no cenário. */
+  turretBulletHitsTile(bullet: Projectile): void {
+    if (!bullet.active) return;
+    if (bullet.blast > 0) this.shellBurst(bullet);
+    bullet.kill();
+  }
+
+  /** Granada do canhão: explode e fere só os inimigos em volta. */
+  private shellBurst(bullet: Projectile): void {
+    const { fx } = this.ctx;
+    const x = bullet.x;
+    const y = bullet.y;
+    fx.flash(x, y, 0xffb347, bullet.blast / 24, 260);
+    fx.spark(x, y, 0xffb347, 14);
+    audio.play('explode');
+    this.blastEnemies(x, y, bullet.blast, bullet.damage, 200);
+  }
+
+  /** Dano de área nos inimigos. Devolve quantos morreram. */
+  private blastEnemies(x: number, y: number, radius: number, damage: number, knock: number): number {
+    let killed = 0;
+    for (const e of this.aliveEnemies.slice()) {
+      if (!e.alive) continue;
+      const dmg = explosionDamage(damage, Math.hypot(e.x - x, e.arcade.center.y - y), radius + e.arcade.halfWidth);
+      if (dmg <= 0) continue;
+      this.damageEnemy(e, dmg, (e.x < x ? -1 : 1) * knock, 'explosion');
+      if (!e.alive) killed++;
+    }
+    if (killed > 0) this.events.onExplosionKills?.(killed);
+    return killed;
   }
 
   /** Disparo do herói bateu em um bloco. */
@@ -128,6 +166,7 @@ export class CombatController {
     if (this.ctx.ended) return;
     const dealt = player.hurt(amount, fromX, this.ctx.now);
     if (dealt <= 0) return;
+    this.events.onPlayerHurt?.(dealt);
     fx.number(player.x, player.arcade.y - 8, `-${Math.round(dealt)}`, '#ff5d73');
     fx.spark(player.x, player.arcade.center.y, 0xff5d73, 8);
     scene.cameras.main.shake(140, 0.006);
@@ -197,27 +236,46 @@ export class CombatController {
 
   // ------------------------------------------------------- dano em inimigos
 
-  damageEnemy(e: Enemy, amount: number, knockX: number): void {
+  damageEnemy(e: Enemy, amount: number, knockX: number, cause: KillCause = 'other'): void {
     const { fx, scene } = this.ctx;
     const dealt = e.takeDamage(amount, this.ctx.now, knockX);
     if (dealt <= 0) return;
     fx.number(e.x, e.arcade.y - 6, String(Math.round(dealt)), '#ffffff');
     fx.spark(e.x, e.arcade.center.y, 0xffe9a8, 6);
     e.setTintFill(0xffffff);
-    scene.time.delayedCall(70, () => { if (e.active) e.clearTint(); });
+    scene.time.delayedCall(70, () => { if (e.active) e.restoreTint(); });
     audio.play('hit');
-    if (!e.alive) this.killEnemy(e);
+    if (!e.alive) this.killEnemy(e, cause);
+  }
+
+  /** Um inimigo caiu no abismo: some sem deixar materiais. */
+  fallIntoAbyss(e: Enemy): void {
+    if (!e.alive) return;
+    e.die();
+    this.killEnemy(e, 'abyss');
+  }
+
+  /** Remove todos os inimigos em campo, sem materiais e sem contar como derrota (sandbox). */
+  clearEnemies(): void {
+    for (const e of this.aliveEnemies.slice()) {
+      e.die();
+      this.ctx.enemies.remove(e);
+      this.events.onEnemyKilled(e, 'other');
+      e.destroy();
+    }
   }
 
   /** Remove o inimigo de todos os sistemas uma única vez. */
-  private killEnemy(e: Enemy): void {
+  private killEnemy(e: Enemy, cause: KillCause): void {
     const { fx, scene, match } = this.ctx;
     const boss = e.def.behavior === 'boss';
+    if (!this.ctx.enemies.contains(e)) return;
     this.ctx.enemies.remove(e);
     this.spikeTimer.forget(e.id);
+    this.iceTimer.forget(e.id);
     match.kills++;
-    this.events.onEnemyKilled(e);
-    const gems = Math.min(boss ? 6 : 3, Math.ceil(e.def.reward / 8));
+    this.events.onEnemyKilled(e, cause);
+    const gems = cause === 'abyss' ? 0 : Math.min(boss ? 6 : 3, Math.ceil(e.def.reward / 8));
     for (let i = 0; i < gems; i++) this.pickups.drop(e.x, e.arcade.center.y, Math.round(e.def.reward / gems));
     fx.burst(e.x, e.arcade.center.y, 0xb48cff, boss ? 30 : 12);
     fx.flash(e.x, e.arcade.center.y, 0xb48cff, boss ? 3 : 1, 220);
@@ -228,17 +286,47 @@ export class CombatController {
     });
   }
 
-  /** Espinhos sob os pés de um inimigo terrestre: dano com intervalo, e desgaste da armadilha. */
-  applySpikes(e: Enemy, now: number): void {
+  /**
+   * Armadilhas de chão sob os pés de um inimigo terrestre: espinhos ferem e
+   * gelo deixa lento. As duas se desgastam com o uso.
+   */
+  applyFloorTraps(e: Enemy, now: number): void {
     const body = e.arcade;
     const b = this.ctx.match.building;
     const ty = Math.floor((body.bottom - 2) / TILE);
     for (let tx = Math.floor(body.x / TILE); tx <= Math.floor((body.right - 1) / TILE); tx++) {
-      if (b.get(tx, ty).trap !== 'spikes') continue;
-      if (!this.spikeTimer.tryDamage(e.id, now, SPIKES.interval)) return;
-      this.damageEnemy(e, SPIKES.damage, 0);
-      b.damage(tx, ty, SPIKES.wear);
-      return;
+      const trap = b.get(tx, ty).trap;
+      if (trap === 'ice') {
+        if (!e.slowed) this.ctx.fx.spark(e.x, body.bottom - 4, 0x9fe7ff, 6);
+        e.slow(now);
+        if (this.iceTimer.tryDamage(e.id, now, 1)) b.damage(tx, ty, ICE.wear);
+      } else if (trap === 'spikes' && this.spikeTimer.tryDamage(e.id, now, SPIKES.interval)) {
+        this.damageEnemy(e, SPIKES.damage, 0);
+        b.damage(tx, ty, SPIKES.wear);
+      }
+      if (!e.alive) return;
+    }
+  }
+
+  /** Meteoro: atinge inimigos, o herói e o cenário (menos o núcleo e o que é indestrutível). */
+  meteor(x: number, y: number, radius: number, damage: number, blockDamage: number): void {
+    const { player, fx, scene, match } = this.ctx;
+    fx.flash(x, y, 0xff7a3d, radius / 20, 380);
+    fx.spark(x, y, 0xffb347, 20);
+    fx.burst(x, y, 0x55597a, 12);
+    scene.cameras.main.shake(180, 0.008);
+    audio.play('explode');
+    this.blastEnemies(x, y, radius, damage, 260);
+    const pd = explosionDamage(damage, Math.hypot(player.x - x, player.arcade.center.y - y), radius);
+    if (pd > 0) this.hurtPlayer(pd, x);
+    const b = match.building;
+    const cx = Math.floor(x / TILE);
+    const cy = Math.floor(y / TILE);
+    for (let ty = cy - 1; ty <= cy + 1; ty++) {
+      for (let tx = cx - 1; tx <= cx + 1; tx++) {
+        const def = b.get(tx, ty);
+        if (!def.core && Number.isFinite(def.maxHp) && def.id !== 'empty') b.damage(tx, ty, blockDamage);
+      }
     }
   }
 
@@ -254,11 +342,7 @@ export class CombatController {
     fx.burst(x, y, 0x55597a, 16);
     scene.cameras.main.shake(260, 0.012);
     audio.play('explode');
-    for (const e of this.aliveEnemies.slice()) {
-      if (!e.alive) continue;
-      const dmg = explosionDamage(ex.damage, Math.hypot(e.x - x, e.arcade.center.y - y), radius + e.arcade.halfWidth);
-      if (dmg > 0) this.damageEnemy(e, dmg, (e.x < x ? -1 : 1) * 320);
-    }
+    this.blastEnemies(x, y, radius, ex.damage, 320);
     // O herói também se fere, mas menos: explosivo é arma de risco.
     const pd = explosionDamage(ex.damage * 0.35, Math.hypot(player.x - x, player.arcade.center.y - y), radius);
     if (pd > 0) this.hurtPlayer(pd, x);

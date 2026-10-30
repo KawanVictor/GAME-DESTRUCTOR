@@ -17,6 +17,7 @@
     "preview:e2e": "vite preview --mode e2e"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "phaser": "^3.90.0"
   },
   "devDependencies": {
